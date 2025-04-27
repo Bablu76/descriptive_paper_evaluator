@@ -1,2 +1,5 @@
 # ignore environment file containing secrets
 # .env
+venv
+components/__pycache__
+tests/__pycache__

@@ -1,5 +1,5 @@
 import unittest
-from components.document_processor import DocumentProcessor
+from document_processor import DocumentProcessor
 
 class TestDocumentProcessor(unittest.TestCase):
     def setUp(self):

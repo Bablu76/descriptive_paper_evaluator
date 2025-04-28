@@ -1,243 +1,40 @@
 [
   {
-    "Q_No": "1.0a",
-    "Question": "Define Space Complexity.  Explain the components used to compute space complexity.",
-    "Marks": 2,
-    "CO": "co1",
-    "Rubric": [
-      "Define space complexity clearly",
-      "Explain fixed, variable, and return space components"
-    ]
+    "id": 1,
+    "question_number": 1,
+    "question_text": "Explain the concept of Object-Oriented Programming (OOP) and its key principles.",
+    "marks": 10,
+    "rubric": [
+      "Define OOP",
+      "Explain encapsulation",
+      "Describe inheritance",
+      "Discuss polymorphism"
+    ],
+    "co_id": "co1"
   },
   {
-    "Q_No": "1.0b",
-    "Question": "Develop Find operation in Disjoints sets.",
-    "Marks": 2,
-    "CO": "co2",
-    "Rubric": [
-      "Provide pseudocode for Find operation",
-      "Explain path compression"
-    ]
+    "id": 2,
+    "question_number": 2,
+    "question_text": "Write a Python function to calculate the factorial of a number and explain its logic.",
+    "marks": 8,
+    "rubric": [
+      "Correct function implementation",
+      "Use of recursion or iteration",
+      "Clear explanation of logic"
+    ],
+    "co_id": "co2"
   },
   {
-    "Q_No": "1.0c",
-    "Question": "Define Divide and Conquer strategy.",
-    "Marks": 2,
-    "CO": "co3",
-    "Rubric": [
-      "Define Divide and Conquer",
-      "Mention key steps: divide, conquer, combine"
-    ]
-  },
-  {
-    "Q_No": "1.0d",
-    "Question": "List the General criteria for Dynamic Programming.",
-    "Marks": 2,
-    "CO": "co4",
-    "Rubric": [
-      "List general criteria for dynamic programming",
-      "Mention at least two criteria with examples"
-    ]
-  },
-  {
-    "Q_No": "1.0e",
-    "Question": "Give the time Complexity of Kruskal Algorithm",
-    "Marks": 2,
-    "CO": "co2",
-    "Rubric": [
-      "State Kruskal's algorithm time complexity",
-      "Mention dependency on edges (E) and vertices (V)"
-    ]
-  },
-  {
-    "Q_No": "1.0f",
-    "Question": "Compare and contrast Greedy Method with Dynamic Programming",
-    "Marks": 2,
-    "CO": "co6",
-    "Rubric": [
-      "List four differences between Greedy and Dynamic Programming"
-    ]
-  },
-  {
-    "Q_No": "1.0g",
-    "Question": "Draw the State Space Tree Organization for 4-Queen Solution Space",
-    "Marks": 2,
-    "CO": "co5",
-    "Rubric": [
-      "Draw state space tree for 4-Queen problem",
-      "Label nodes and constraints clearly"
-    ]
-  },
-  {
-    "Q_No": "1.0h",
-    "Question": "Briefly specify the mColoring problem.  Indicate its implicit and explicit constriants",
-    "Marks": 2,
-    "CO": "co5",
-    "Rubric": [
-      "Define mColoring problem",
-      "List implicit and explicit constraints"
-    ]
-  },
-  {
-    "Q_No": "1.0i",
-    "Question": "Indicate the significance of Branch and Bound Approach.",
-    "Marks": 2,
-    "CO": "co3",
-    "Rubric": [
-      "Explain the significance of Branch and Bound",
-      "Mention ranking function and space tree traversal"
-    ]
-  },
-  {
-    "Q_No": "1.0j",
-    "Question": "What do you mean by Non-deterministic Algorithms",
-    "Marks": 2,
-    "CO": "co7",
-    "Rubric": [
-      "Define Non-deterministic algorithm",
-      "Explain with example"
-    ]
-  },
-  {
-    "Q_No": "2.0a.",
-    "Question": "Descibe Performance Analysis.  Illustrate with suitable examples",
-    "Marks": 5,
-    "CO": "co1",
-    "Rubric": [
-      "Define performance analysis",
-      "Explain time and space complexity with examples"
-    ]
-  },
-  {
-    "Q_No": "2.0b.",
-    "Question": "Discuss Disjoint sets Union and Find Operations with performance Improvements",
-    "Marks": 5,
-    "CO": "co2",
-    "Rubric": [
-      "Define Disjoint sets",
-      "Explain union and find operations with optimizations"
-    ]
-  },
-  {
-    "Q_No": "3.0a.",
-    "Question": "Sort the following index values in ascending order using Merge Sort: 49, 15, 23, 12, 32, 45, 16, 29, 10, 25",
-    "Marks": 5,
-    "CO": "co3",
-    "Rubric": [
-      "Perform Merge Sort",
-      "Show steps of divide and merge"
-    ]
-  },
-  {
-    "Q_No": "3.0b",
-    "Question": "Define OBST Problem.  Construct the OBST for the following keys (a1, a2, a3, a4) with\np(1) = 1/20, p(2)=1/5, p(3)=1/10, p(4)=1/20 and\nq(0)=1/5, q(1)=1/10, q(2)=1/5, q(3)=1/20, q(4)=1/20.",
-    "Marks": 5,
-    "CO": "co5",
-    "Rubric": [
-      "Define OBST",
-      "Construct OBST using given probabilities",
-      "Explain cost calculation"
-    ]
-  },
-  {
-    "Q_No": "4.0a.",
-    "Question": "Develop Greedy Prim’s Minimum Cost Spanning Tree algorithm for the graph given by the following adjacency matrix:\n\n|     | 1 | 2 | 3 | 4 |\n| --- | - | - | - | - |\n| **1** | 0 | 2 | 0 | 6 |\n| **2** | 2 | 0 | 3 | 8 |\n| **3** | 0 | 3 | 0 | 0 |\n| **4** | 6 | 8 | 0 | 0 |\n\nProvide the step-by-step MST construction.",
-    "Marks": 5,
-    "CO": "co4",
-    "Rubric": [
-      "Describe Prim's algorithm",
-      "Provide step-by-step MST construction"
-    ]
-  },
-  {
-    "Q_No": "4.0b",
-    "Question": "Apply the Single Source Shortest Paths Algorithm from source vertex **5** for the following cost matrix:\n\n|     | 1 | 2 | 3 | 4 | 5 |\n| --- | - | - | - | - | - |\n| **1** | 0 | 6 | ∞ | 1 | 7 |\n| **2** | 6 | 0 | 4 | ∞ | 3 |\n| **3** | ∞ | 4 | 0 | 2 | 5 |\n| **4** | 1 | ∞ | 2 | 0 | 8 |\n| **5** | 7 | 3 | 5 | 8 | 0 |\n\nDetermine the shortest paths and distances from vertex 5.",
-    "Marks": 5,
-    "CO": "co4",
-    "Rubric": [
-      "Apply Single Source Shortest Path algorithm",
-      "Trace the path and update distances"
-    ]
-  },
-  {
-    "Q_No": "5.0a",
-    "Question": "Develop a Recursive Backtracking algorithm for Sum of Subsets Problem.",
-    "Marks": 5,
-    "CO": "co4",
-    "Rubric": [
-      "Write recursive backtracking algorithm",
-      "Trace solution for subset sum"
-    ]
-  },
-  {
-    "Q_No": "5.0b",
-    "Question": "Let w = (5,10,10,25) and m = 25.  Find all possible subsets of w that sum to m using a fixed tuple length.",
-    "Marks": 5,
-    "CO": "co4",
-    "Rubric": [
-      "List all subsets summing to m",
-      "Apply fixed tuple length constraint"
-    ]
-  },
-  {
-    "Q_No": "6.0a",
-    "Question": "Consider the Travelling Salesperson instance defined by the cost matrix:\n\n|     | 1  | 2  | 3  | 4  |\n| --- | -- | -- | -- | -- |\n| **1** | 0  | 10 | 15 | 20 |\n| **2** | 10 | 0  | 35 | 25 |\n| **3** | 15 | 35 | 0  | 30 |\n| **4** | 20 | 25 | 30 | 0  |\n\n**(a)** Obtain the reduced cost matrix.\n**(b)** Using a state-space tree formulation, draw the portion of the tree generated by LCBB and label each node with its ŷ-value. Also provide the reduced matrices at each node.",
-    "Marks": 5,
-    "CO": "co6",
-    "Rubric": [
-      "Reduce cost matrix",
-      "Build state space tree with LCBB",
-      "Label each node with cost"
-    ]
-  },
-  {
-    "Q_No": "6.0b",
-    "Question": "Explain the classes of P and NP.",
-    "Marks": 5,
-    "CO": "co7",
-    "Rubric": [
-      "Define P and NP",
-      "Explain both with 1–2 examples each"
-    ]
-  },
-  {
-    "Q_No": "7.0a",
-    "Question": "Design a three-stage system with device types D1, D2 and D3.  The costs are ₹30, ₹15 and ₹20 respectively, and the system must cost no more than ₹105.  The reliability of each device type is 0.9, 0.8 and 0.5 respectively.",
-    "Marks": 5,
-    "CO": "co5",
-    "Rubric": [
-      "Define cost and reliability constraints",
-      "Design a valid system under budget"
-    ]
-  },
-  {
-    "Q_No": "7.0b",
-    "Question": "Let us consider n=4 matrices with dimensions:\n\n| Matrix | rows | columns |\n| ------ | ---- | ------- |\n| M₁     | 10   | 20      |\n| M₂     | 20   | 50      |\n| M₃     | 50   | 1       |\n| M₄     | 1    | 100     |\n\nApply matrix-chain multiplication to compute the optimal cost and parenthesization.",
-    "Marks": 5,
-    "CO": "co5",
-    "Rubric": [
-      "Apply matrix chain multiplication formula",
-      "Calculate optimal cost and parenthesization"
-    ]
-  },
-  {
-    "Q_No": "8.0a",
-    "Question": "Discuss and develop the backtracking Hamiltonian Cycle Problem.",
-    "Marks": 5,
-    "CO": "co5",
-    "Rubric": [
-      "Describe backtracking Hamiltonian cycle",
-      "Write algorithm and trace example"
-    ]
-  },
-  {
-    "Q_No": "8.0b",
-    "Question": "Discuss the FIFO branch-and-bound solution to the 0/1 knapsack problem.",
-    "Marks": 5,
-    "CO": "co6",
-    "Rubric": [
-      "Define FIFO Branch and Bound",
-      "Explain its use in 0/1 knapsack problem"
-    ]
+    "id": 3,
+    "question_number": 3,
+    "question_text": "What is a variable in programming? Explain variable scope with examples.",
+    "marks": 7,
+    "rubric": [
+      "Define variable",
+      "Explain local scope",
+      "Explain global scope",
+      "Provide examples"
+    ],
+    "co_id": "co1"
   }
 ]

@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from components.answer_generator import ModelAnswerGenerator
+from answer_generator import ModelAnswerGenerator
 
 # A dummy retriever for predictable snippets
 class DummyRetriever:

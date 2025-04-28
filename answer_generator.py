@@ -14,7 +14,7 @@ class AnswerGenerator:
     def __init__(
         self,
         db_path: str = "./data/main.db",
-        hf_model: str = "google/flan-t5-base"
+        hf_model: str = "distilbert-base-uncased"
     ):
         self.db_path = db_path
         try:
@@ -29,12 +29,12 @@ class AnswerGenerator:
                 "text-generation",
                 model=hf_model,
                 tokenizer=hf_model,
-                max_new_tokens=512,
+                max_new_tokens=256,  # Reduced for CPU
                 do_sample=True,
-                top_k=50,
-                top_p=0.95,
-                temperature=0.7,
-                repetition_penalty=1.2,
+                top_k=30,  # Reduced for faster processing
+                top_p=0.9,
+                temperature=0.6,
+                repetition_penalty=1.1,
                 device=-1  # CPU
             )
             logger.info(f"Initialized {hf_model} for answer generation")
@@ -87,12 +87,12 @@ class AnswerGenerator:
             logger.error(f"Error caching answer for {qid}: {e}")
 
     def _build_prompt(self, question_text: str, marks: int, co_id: str, rubric: List[str]) -> str:
-        """Build prompt for model answer generation."""
+        """Build concise prompt for model answer generation."""
         prompt = (
-            f"Question ({marks} marks): {question_text}\n"
-            f"Course Outcome: {co_id}\n"
-            f"Rubric:\n" + "\n".join(f"- {r}" for r in rubric) + "\n"
-            f"Generate a concise answer (~{marks*50} words) covering all rubric points."
+            f"Q: {question_text} ({marks} marks)\n"
+            f"CO: {co_id}\n"
+            f"Rubric: {', '.join(rubric)}\n"
+            f"Generate a concise answer (~{marks*30} words)."
         )
         return prompt
 
@@ -112,7 +112,7 @@ class AnswerGenerator:
                 return cached
 
             prompt = self._build_prompt(question_text, marks, co_id, rubric)
-            result = self.generator(prompt, max_new_tokens=512)[0]["generated_text"]
+            result = self.generator(prompt, max_new_tokens=256)[0]["generated_text"]
             answer = result[len(prompt):].strip() if result.startswith(prompt) else result.strip()
 
             self._cache_answer(question_id, answer)

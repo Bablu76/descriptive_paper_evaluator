@@ -8,15 +8,13 @@ from evaluator import AnswerEvaluator
 from feedback_generator import FeedbackGenerator
 from db_utils import DBUtils
 import logging
-from multiprocessing import Pool
 from typing import List
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-def process_student_pdf(args: tuple):
-    """Process a single student PDF (for multiprocessing)."""
-    pdf_path, student_processor, questions = args
+def process_student_pdf(pdf_path: str, student_processor: StudentAnswerProcessor, questions: List[Dict]):
+    """Process a single student PDF."""
     try:
         student_id = pdf_path.split("/")[-1].replace(".pdf", "")
         student_processor.process_student_paper(pdf_path, student_id, questions=questions)
@@ -69,11 +67,11 @@ def main():
             )
         logger.info("Generated model answers")
 
-        # Process student answers
+        # Process student answers sequentially
         answer_pdfs = glob.glob("./data/answer_sheets/*.pdf")
         if answer_pdfs:
-            with Pool(4) as p:
-                p.map(process_student_pdf, [(pdf, student_processor, questions) for pdf in answer_pdfs])
+            for pdf in answer_pdfs:
+                process_student_pdf(pdf, student_processor, questions)
             logger.info("Processed all student answers")
 
         # Evaluate answers

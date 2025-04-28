@@ -1,3 +1,4 @@
+
 import sqlite3
 import re
 import json
@@ -6,6 +7,7 @@ from sentence_transformers import SentenceTransformer
 from scipy.spatial.distance import cosine
 import logging
 from typing import Dict, List, Optional
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -17,7 +19,7 @@ class AnswerEvaluator:
         embedding_model: str = "all-MiniLM-L6-v2",
         plagiarism_threshold: float = 0.95
     ):
-        self.model = SentenceTransformer(embedding_model)
+        self.model = SentenceTransformer(embedding_model, device='cpu')
         self.plagiarism_threshold = plagiarism_threshold
         try:
             self.conn = sqlite3.connect(db_path)
@@ -76,8 +78,8 @@ class AnswerEvaluator:
                     rubric_points.append(key)
         return rubric_points
 
-    def _segment_answer(self, answer_text: str, num_segments: int = 5) -> List[str]:
-        """Split an answer into segments."""
+    def _segment_answer(self, answer_text: str, num_segments: int = 3) -> List[str]:
+        """Split an answer into fewer segments for CPU efficiency."""
         sentences = re.split(r'(?<=[.!?])\s+', answer_text.strip())
         if len(sentences) <= num_segments:
             return sentences
@@ -96,8 +98,8 @@ class AnswerEvaluator:
         if not text1 or not text2:
             return 0.0
         try:
-            emb1 = self.model.encode(text1)
-            emb2 = self.model.encode(text2)
+            emb1 = self.model.encode(text1, batch_size=1)
+            emb2 = self.model.encode(text2, batch_size=1)
             similarity = 1 - cosine(emb1, emb2)
             return max(0.0, min(1.0, similarity))
         except Exception as e:
@@ -105,18 +107,33 @@ class AnswerEvaluator:
             return 0.0
 
     def _keyword_overlap(self, text1: str, text2: str, min_words: int = 5) -> float:
-        """Calculate keyword overlap as a pre-filter."""
+        """Calculate keyword overlap as a pre-filter for plagiarism detection.
+
+        Args:
+            text1 (str): First text to compare.
+            text2 (str): Second text to compare.
+            min_words (int): Minimum number of words required in each text. Defaults to 5.
+
+        Returns:
+            float: Ratio of common words to the minimum set size, or 0.0 if conditions aren't met.
+        """
         if not text1 or not text2:
             return 0.0
-        words1 = set(word.lower() for word in text1.split() if len(word) > 3)
-        words2 = set(word.lower() for word in text2.split() if len(word) > 3)
-        if len(words1) < min_words or len(words2) < min_words:
+        
+        # Extract words longer than 3 characters, converted to lowercase
+        words1 = {word.lower() for word in text1.split() if len(word) > 3}
+        words2 = {word.lower() for word in text2.split() if len(word) > 3}
+
+        # Check if either set has fewer than min_words or is empty
+        if len(words1) < min_words or len(words2) < min_words or not words1 or not words2:
             return 0.0
+
+        # Calculate overlap
         common = len(words1 & words2)
         return common / min(len(words1), len(words2))
 
     def _check_plagiarism(self, student_answer: str, student_id: str) -> tuple[float, Optional[str]]:
-        """Check for plagiarism with pre-filter."""
+        """Check for plagiarism with stricter pre-filter."""
         highest_similarity = 0.0
         source = None
         segments = self._segment_answer(student_answer)
@@ -127,7 +144,7 @@ class AnswerEvaluator:
                 if len(segment.split()) < 10:
                     continue
                 for chunk_id, book_title, chunk_text in textbook_chunks:
-                    if self._keyword_overlap(segment, chunk_text) < 0.3:
+                    if self._keyword_overlap(segment, chunk_text) < 0.4:  # Stricter threshold
                         continue
                     similarity = self._calculate_similarity(segment, chunk_text)
                     if similarity > highest_similarity:
@@ -146,7 +163,7 @@ class AnswerEvaluator:
                 for segment in segments:
                     if len(segment.split()) < 10:
                         continue
-                    if self._keyword_overlap(segment, other_answer) < 0.3:
+                    if self._keyword_overlap(segment, other_answer) < 0.4:  # Stricter threshold
                         continue
                     similarity = self._calculate_similarity(segment, other_answer)
                     if similarity > highest_similarity:
@@ -292,38 +309,19 @@ class AnswerEvaluator:
         similarity: float,
         plagiarism_score: float
     ) -> str:
-        """Generate personalized feedback."""
+        """Generate concise feedback."""
         feedback_parts = []
         if similarity > 0.9:
-            feedback_parts.append("Excellent answer! Your response closely matches the model answer.")
+            feedback_parts.append("Excellent answer!")
         elif similarity > 0.7:
-            feedback_parts.append("Good answer. You've covered most key points.")
+            feedback_parts.append("Good answer.")
         elif similarity > 0.5:
-            feedback_parts.append("Satisfactory answer, but some key points are missing.")
+            feedback_parts.append("Satisfactory answer.")
         else:
-            feedback_parts.append("Your answer needs significant improvement.")
-
-        strengths = []
-        weaknesses = []
-        for point, score in rubric_coverage.items():
-            if score > 0.7:
-                strengths.append(f"✓ Strong: {point}")
-            elif score < 0.4:
-                weaknesses.append(f"✗ Weak: {point}")
-
-        if strengths:
-            feedback_parts.append("\nStrengths:")
-            feedback_parts.extend(strengths)
-        if weaknesses:
-            feedback_parts.append("\nAreas for Improvement:")
-            feedback_parts.extend(weaknesses)
+            feedback_parts.append("Needs improvement.")
 
         if plagiarism_score >= self.plagiarism_threshold:
-            feedback_parts.append("\n⚠️ Warning: High similarity to external sources detected. Ensure answers are in your own words.")
-
-        if similarity < 0.7:
-            model_snippet = model_answer[:100] + "..." if len(model_answer) > 100 else model_answer
-            feedback_parts.append(f"\nReference: {model_snippet}")
+            feedback_parts.append("⚠️ High similarity detected.")
 
         return "\n".join(feedback_parts)
 

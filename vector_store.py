@@ -10,15 +10,19 @@ logger = logging.getLogger(__name__)
 
 class VectorStore:
     def __init__(self, embedding_model: str = "all-MiniLM-L6-v2"):
-        self.embedding_model = SentenceTransformer(embedding_model)
+        self.embedding_model = SentenceTransformer(embedding_model, device='cpu')
         self.index = None
         self.chunks = []
         self.metadata = []
 
     def build_index(self, texts: List[str], metadata: List[Dict]):
-        """Build FAISS index from text chunks."""
+        """Build FAISS index from text chunks with smaller batch size."""
         try:
-            embeddings = self.embedding_model.encode(texts, convert_to_numpy=True)
+            embeddings = self.embedding_model.encode(
+                texts, 
+                convert_to_numpy=True, 
+                batch_size=16  # Reduced for CPU
+            )
             dimension = embeddings.shape[1]
             self.index = faiss.IndexFlatL2(dimension)
             self.index.add(embeddings)
@@ -29,8 +33,8 @@ class VectorStore:
             logger.error(f"Error building FAISS index: {e}")
             raise
 
-    def search(self, query: str, k: int = 5) -> List[Dict]:
-        """Search for top-k similar chunks."""
+    def search(self, query: str, k: int = 3) -> List[Dict]:
+        """Search for top-k similar chunks with reduced k."""
         try:
             query_emb = self.embedding_model.encode([query], convert_to_numpy=True)
             distances, indices = self.index.search(query_emb, k)

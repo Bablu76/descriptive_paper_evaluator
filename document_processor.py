@@ -159,3 +159,8 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error analyzing CO distribution: {e}")
             raise
+
+    def close(self):
+        """Close any resources used by the DocumentProcessor."""
+        # Nothing specific to close for this class
+        logger.info("Closed DocumentProcessor resources")

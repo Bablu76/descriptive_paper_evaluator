@@ -14,7 +14,7 @@ class AnswerGenerator:
     def __init__(
         self,
         db_path: str = "./data/main.db",
-        hf_model: str = "distilbert-base-uncased"
+        hf_model: str = "gpt2"
     ):
         self.db_path = db_path
         try:

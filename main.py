@@ -8,7 +8,8 @@ from evaluator import AnswerEvaluator
 from feedback_generator import FeedbackGenerator
 from db_utils import DBUtils
 import logging
-from typing import List
+from typing import List, Dict
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -92,6 +93,8 @@ def main():
         evaluator.close()
         feedback_generator.close()
         logger.info("Pipeline completed successfully")
+
+
 
     except Exception as e:
         logger.error(f"Pipeline error: {e}")

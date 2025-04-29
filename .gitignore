@@ -1,6 +1,6 @@
 # ignore environment file containing secrets
 # .env
-venv
-components/__pycache__
+# components/__pycache__
 tests/__pycache__
 paper_env
+__pycache__

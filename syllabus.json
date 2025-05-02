@@ -1,0 +1,119 @@
+{
+  "Course Information": {
+    "Course Name": "DESIGN AND ANALYSIS OF ALGORITHMS",
+    "Course Code": "GR22A2077",
+    "L/T/P/C": "3/0/0/3",
+    "Year/Semester": "II Year II Semester",
+    "Institution": "GOKARAJU RANGARAJU INSTITUTE OF ENGINEERING AND TECHNOLOGY"
+  },
+  "Course Objectives": [
+    "Recall algorithm definition, its properties & performance analysis.",
+    "Demonstrate a familiarity with major algorithms and data structures.",
+    "Apply important algorithmic design paradigms and methods of analysis.",
+    "Evaluate efficient algorithms in common engineering design situations.",
+    "Understanding performances of various techniques."
+  ],
+  "Course Outcomes": [
+    "Distinguish various performances of algorithms.",
+    "Illustrating Divide and Conquer Design Paradigm algorithms.",
+    "Examining various algorithms based on Dynamic programming paradigm.",
+    "Discriminate greedy approach and back tracking algorithms.",
+    "Demonstrate branch and bound problems and Distinguish problems related to various complexity classes."
+  ],
+  "Unit Entries": [
+    {
+      "Unit": "UNIT I",
+      "Topic": "Introduction to algorithms",
+      "Subtopics": [
+        "Definition of an algorithm",
+        "Properties of an Algorithm",
+        "Performance analysis--space complexity",
+        "Time complexity",
+        "Amortized analysis"
+      ]
+    },
+    {
+      "Unit": "UNIT II",
+      "Topic": "Disjoint sets",
+      "Subtopics": [
+        "Disjoint set Representation",
+        "Operations, union and find algorithms"
+      ]
+    },
+    {
+      "Unit": "UNIT II",
+      "Topic": "Divide and Conquer",
+      "Subtopics": [
+        "General method",
+        "Applications",
+        "Binary search",
+        "Quick sort",
+        "Merge sort",
+        "Strassen's matrix multiplication"
+      ]
+    },
+    {
+      "Unit": "UNIT III",
+      "Topic": "Dynamic Programming",
+      "Subtopics": [
+        "General method",
+        "Applications",
+        "Optimal binary search trees",
+        "0/1 knapsack problem",
+        "All pairs shortest path problem",
+        "Travelling salesperson problem",
+        "Optimal rod-cutting-Top down approach and bottom up approach"
+      ]
+    },
+    {
+      "Unit": "UNIT IV",
+      "Topic": "Greedy method",
+      "Subtopics": [
+        "General method",
+        "Applications-- job sequencing with deadlines",
+        "Knapsack problem",
+        "Minimum cost spanning trees",
+        "Single source shortest path problem",
+        "Activity selection problem"
+      ]
+    },
+    {
+      "Unit": "UNIT IV",
+      "Topic": "Backtracking",
+      "Subtopics": [
+        "General method",
+        "Applications",
+        "N-queen problem",
+        "Sum of subsets problem",
+        "Hamiltonian cycles"
+      ]
+    },
+    {
+      "Unit": "UNIT V",
+      "Topic": "Branch and Bound",
+      "Subtopics": [
+        "General method",
+        "Applications",
+        "Travelling sales person problem",
+        "0/1 knapsack problem: LC branch and bound solution",
+        "FIFO branch and bound solution"
+      ]
+    },
+    {
+      "Unit": "UNIT V",
+      "Topic": "Complexity Classes",
+      "Subtopics": [
+        "Non deterministic algorithms",
+        "Deterministic algorithms",
+        "Relationship between P, NP, NP-completeness",
+        "Circuit-satisfiability problem",
+        "3-CNF satisfiability"
+      ]
+    }
+  ],
+  "Textbooks/References": [
+    "Ellis Horowitz, Satraj Sahni and S Rajasekharam, Fundamentals of Computer Algorithms, Galgotia publishers.",
+    "T H Cormen, C E Leiserson, and R L Rivest, Introduction to Algorithms, 3rd Edition, Pearson Education.",
+    "Michael T. Goodrich & Roberto Tamassia, Algorithm Design, Wiley Singapore Edition, 2002."
+  ]
+}

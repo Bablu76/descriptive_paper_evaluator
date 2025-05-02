@@ -1,130 +1,142 @@
 import os
-import sqlite3
-from datetime import datetime
+import json
 import logging
-from transformers import pipeline
-from typing import List, Dict, Optional
+from typing import List
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from huggingface_hub import InferenceApi
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+from document_processor import DocumentProcessor
 
 class AnswerGenerator:
-    """Generate model answers using a lightweight LLM without RAG."""
-
-    def __init__(
-        self,
-        db_path: str = "./data/main.db",
-        hf_model: str = "gpt2"
-    ):
-        self.db_path = db_path
+    """
+    Generates model answers for given questions using a transformer model.
+    Uses static syllabus (syllabus.json) and question list (questions.json).
+    Each answer may include retrieved context from textbooks.
+    """
+    def __init__(self, model_name: str = "google/flan-t5-small", device: int = -1):
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        self.model_name = model_name
+        self.device = device  # -1 for CPU, >=0 for GPU
         try:
-            self.conn = sqlite3.connect(db_path)
-            self.cursor = self.conn.cursor()
-            self._create_tables()
-        except sqlite3.Error as e:
-            logger.error(f"Database connection error: {e}")
-            raise
-        try:
+            self.logger.info(f"Loading model {self.model_name}.")
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
             self.generator = pipeline(
-                "text-generation",
-                model=hf_model,
-                tokenizer=hf_model,
-                max_new_tokens=256,  # Reduced for CPU
-                do_sample=True,
-                top_k=30,  # Reduced for faster processing
-                top_p=0.9,
-                temperature=0.6,
-                repetition_penalty=1.1,
-                device=-1  # CPU
+                "text2text-generation", 
+                model=self.model, 
+                tokenizer=self.tokenizer, 
+                device=self.device
             )
-            logger.info(f"Initialized {hf_model} for answer generation")
         except Exception as e:
-            logger.error(f"Error initializing LLM: {e}")
-            raise
-
-    def _create_tables(self):
-        """Create model answers table."""
+            self.logger.error(f"Failed to load local model {self.model_name}: {e}")
+            self.generator = None
+        
+        self.hf_inference = None
         try:
-            self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS model_answers (
-                question_id TEXT PRIMARY KEY,
-                model_answer TEXT,
-                word_count INTEGER,
-                created_at TEXT
-            )
-            ''')
-            self.conn.commit()
-            logger.info("Created model answers table")
-        except sqlite3.Error as e:
-            logger.error(f"Error creating table: {e}")
-            raise
-
-    def _fetch_cached(self, qid: str) -> Optional[str]:
-        """Fetch cached model answer."""
-        try:
-            self.cursor.execute(
-                "SELECT model_answer FROM model_answers WHERE question_id = ?",
-                (qid,)
-            )
-            row = self.cursor.fetchone()
-            return row[0] if row else None
-        except sqlite3.Error as e:
-            logger.error(f"Error fetching cached answer for {qid}: {e}")
-            return None
-
-    def _cache_answer(self, qid: str, answer: str):
-        """Cache generated answer."""
-        try:
-            wc = len(answer.split())
-            self.cursor.execute('''
-            INSERT OR REPLACE INTO model_answers
-            (question_id, model_answer, word_count, created_at)
-            VALUES (?, ?, ?, ?)
-            ''', (qid, answer, wc, datetime.utcnow().isoformat()))
-            self.conn.commit()
-            logger.info(f"Cached answer for question {qid}")
-        except sqlite3.Error as e:
-            logger.error(f"Error caching answer for {qid}: {e}")
-
-    def _build_prompt(self, question_text: str, marks: int, co_id: str, rubric: List[str]) -> str:
-        """Build concise prompt for model answer generation."""
-        prompt = (
-            f"Q: {question_text} ({marks} marks)\n"
-            f"CO: {co_id}\n"
-            f"Rubric: {', '.join(rubric)}\n"
-            f"Generate a concise answer (~{marks*30} words)."
-        )
-        return prompt
-
-    def generate_model_answer(
-        self,
-        question_id: str,
-        question_text: str,
-        marks: int,
-        co_id: str,
-        rubric: List[str]
-    ) -> Optional[str]:
-        """Generate and cache a model answer."""
-        try:
-            cached = self._fetch_cached(question_id)
-            if cached:
-                logger.info(f"Using cached answer for question {question_id}")
-                return cached
-
-            prompt = self._build_prompt(question_text, marks, co_id, rubric)
-            result = self.generator(prompt, max_new_tokens=256)[0]["generated_text"]
-            answer = result[len(prompt):].strip() if result.startswith(prompt) else result.strip()
-
-            self._cache_answer(question_id, answer)
-            return answer
+            if self.generator is None:
+                self.logger.info("Using Hugging Face Inference API as fallback.")
+                self.hf_inference = InferenceApi(
+                    repo_id=self.model_name, 
+                    token=os.getenv("HUGGINGFACE_API_TOKEN")
+                )
         except Exception as e:
-            logger.error(f"Error generating answer for {question_id}: {e}")
-            return None
-
-    def close(self):
-        """Close database connection."""
+            self.logger.error(f"HF Inference API init failed: {e}")
+            self.hf_inference = None
+        
+        # Load static syllabus
+        self.syllabus = self.load_syllabus()
+    
+    def load_syllabus(self):
         try:
-            self.conn.close()
-            logger.info("Closed answer generator database connection")
+            with open("syllabus.json", 'r', encoding='utf-8') as f:
+                syllabus = json.load(f)
+            self.logger.info("Syllabus loaded.")
+            return syllabus
         except Exception as e:
-            logger.error(f"Error closing database: {e}")
+            self.logger.error(f"Syllabus load error: {e}")
+            return {}
+    
+    def generate_answer(self, question: str, marks: int, course_outcome: str = None, context: List[str] = None) -> str:
+        """
+        Generate an answer given a question, marks, optional course outcome, and context.
+        """
+        prompt = ""
+        if course_outcome and course_outcome in self.syllabus:
+            prompt += f"Course Outcome: {self.syllabus[course_outcome]}\n"
+        if context:
+            prompt += "Context: " + " ".join(context) + "\n"
+        
+        prompt += f"Question: {question}\nAnswer (in detail, for {marks} marks):"
+        
+        max_length = marks * 20  # ~20 tokens per mark
+        try:
+            if self.generator:
+                outputs = self.generator(prompt, max_length=max_length, num_return_sequences=1)
+                answer = outputs[0]['generated_text']
+            elif self.hf_inference:
+                result = self.hf_inference(prompt, parameters={"max_length": max_length})
+                answer = result[0]['generated_text'] if isinstance(result, list) else result.get('generated_text', '')
+            else:
+                self.logger.error("No model available for generation.")
+                return ""
+        except Exception as e:
+            self.logger.error(f"Generation error: {e}")
+            return ""
+        
+        return answer.strip()
+    
+    def generate_all(self, questions_path: str):
+        """
+        Load questions from JSON and generate answers for each.
+        """
+        try:
+            with open(questions_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            questions = data.get("questions", [])
+        except Exception as e:
+            self.logger.error(f"Failed to load questions: {e}")
+            return
+        
+        # Initialize document processor for context retrieval
+        processor = DocumentProcessor()
+        
+        answers = []
+        for q in questions:
+            question_text = q.get("question", "")
+            marks = q.get("marks", 1)
+            co = q.get("CO", None)
+            keywords = q.get("keywords", [])
+            self.logger.info(f"Question: {question_text[:30]}... Marks: {marks}, CO: {co}")
+            
+            # Retrieve relevant context from textbooks
+            context_chunks = processor.retrieve_context(question_text)
+            answer_text = self.generate_answer(question_text, marks, course_outcome=co, context=context_chunks)
+            
+            answers.append({
+                "question": question_text,
+                "marks": marks,
+                "CO": co,
+                "keywords": keywords,
+                "model_answer": answer_text
+            })
+        
+        output_path = "model_answers.json"
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump({"answers": answers}, f, indent=2)
+            self.logger.info(f"Model answers saved to {output_path}.")
+        except Exception as e:
+            self.logger.error(f"Saving model answers failed: {e}")
+
+def generate_answers(questions_path: str):
+    gen = AnswerGenerator()
+    gen.generate_all(questions_path)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python answer_generator.py <questions.json>")
+    else:
+        generate_answers(sys.argv[1])

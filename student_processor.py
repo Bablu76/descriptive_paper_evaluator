@@ -1,209 +1,65 @@
 import os
-import fitz  # PyMuPDF
-import re
-import sqlite3
 import json
-from datetime import datetime
 import logging
-from typing import List, Dict, Optional
+import fitz  # PyMuPDF
+from PIL import Image
+import pytesseract
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
-class StudentAnswerProcessor:
-    def __init__(self, db_path: str = "./data/main.db"):
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+class StudentProcessor:
+    """
+    Processes student answer PDFs, extracting text and using OCR if needed.
+    """
+    def __init__(self):
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(self.__class__.__name__)
+    
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """
+        Extract text from a student PDF. If a page has no text, uses OCR (Tesseract).
+        """
+        self.logger.info(f"Processing student PDF: {pdf_path}")
+        text_content = ""
         try:
-            self.conn = sqlite3.connect(db_path)
-            self.cursor = self.conn.cursor()
-            self._create_tables()
-        except sqlite3.Error as e:
-            logger.error(f"Database connection error: {e}")
-            raise
-
-    def _create_tables(self):
-        """Create necessary tables in the database."""
-        try:
-            self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY,
-                student_id TEXT UNIQUE,
-                name TEXT,
-                created_at TEXT
-            )
-            ''')
-            self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS student_answers (
-                id INTEGER PRIMARY KEY,
-                student_id TEXT,
-                question_id INTEGER,
-                answer_text TEXT,
-                page_numbers TEXT,
-                processed_at TEXT,
-                UNIQUE(student_id, question_id)
-            )
-            ''')
-            self.conn.commit()
-            logger.info("Created student tables")
-        except sqlite3.Error as e:
-            logger.error(f"Error creating tables: {e}")
-            raise
-
-    def _register_student(self, student_id: str, student_name: Optional[str] = None):
-        """Register a student in the database if not already registered."""
-        try:
-            self.cursor.execute('SELECT id FROM students WHERE student_id = ?', (student_id,))
-            if not self.cursor.fetchone():
-                self.cursor.execute('''
-                INSERT INTO students (student_id, name, created_at)
-                VALUES (?, ?, ?)
-                ''', (student_id, student_name or student_id, datetime.now().isoformat()))
-                self.conn.commit()
-                logger.info(f"Registered student {student_id}")
-        except sqlite3.Error as e:
-            logger.error(f"Error registering student {student_id}: {e}")
-            raise
-
-    def process_student_paper(
-        self,
-        pdf_path: str,
-        student_id: str,
-        student_name: Optional[str] = None,
-        questions: Optional[List[Dict]] = None
-    ) -> Dict:
-        """Process a student's answer paper PDF."""
-        try:
-            self._register_student(student_id, student_name)
             doc = fitz.open(pdf_path)
-            answers_by_qnum = {}
-            current_question = None
-            current_text = []
-            question_page_map = {}
-
-            q_patterns = [
-                r'^Q\.?\s*(\d+)[\.:]',  # Q.1:
-                r'^Question\s*(\d+)[\.:]',  # Question 1:
-                r'^(\d+)\.\s',  # 1. 
-                r'^(\d+)\)',  # 1)
-                r'^(\d+)[a-d][\.\)]'  # 1a. or 1a)
-            ]
-
-            for page_num in range(len(doc)):
-                page = doc[page_num]
-                text = page.get_text()
-                lines = text.split('\n')
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    new_question = None
-                    for pattern in q_patterns:
-                        match = re.match(pattern, line)
-                        if match:
-                            new_question = match.group(1)
-                            break
-                    if new_question:
-                        if current_question and current_text:
-                            answers_by_qnum[current_question] = '\n'.join(current_text)
-                        current_question = new_question
-                        current_text = [line]
-                        if current_question not in question_page_map:
-                            question_page_map[current_question] = []
-                        question_page_map[current_question].append(page_num)
-                    elif current_question:
-                        current_text.append(line)
-                        if page_num not in question_page_map.get(current_question, []):
-                            question_page_map[current_question].append(page_num)
-
-            if current_question and current_text:
-                answers_by_qnum[current_question] = '\n'.join(current_text)
-
-            doc.close()
-            answers_by_id = {}
-            if questions:
-                q_num_to_id = {str(q['question_number']): q['id'] for q in questions}
-                for q_num, answer in answers_by_qnum.items():
-                    if q_num in q_num_to_id:
-                        q_id = q_num_to_id[q_num]
-                        answers_by_id[q_id] = answer
-                        try:
-                            self.cursor.execute('''
-                            INSERT OR REPLACE INTO student_answers 
-                            (student_id, question_id, answer_text, page_numbers, processed_at)
-                            VALUES (?, ?, ?, ?, ?)
-                            ''', (
-                                student_id,
-                                q_id,
-                                answer,
-                                json.dumps(question_page_map.get(q_num, [])),
-                                datetime.now().isoformat()
-                            ))
-                            self.conn.commit()
-                        except sqlite3.Error as e:
-                            logger.error(f"Error storing answer for {student_id}, question {q_id}: {e}")
-            else:
-                for q_num, answer in answers_by_qnum.items():
-                    answers_by_id[q_num] = answer
-                    try:
-                        self.cursor.execute('''
-                        INSERT OR REPLACE INTO student_answers 
-                        (student_id, question_id, answer_text, page_numbers, processed_at)
-                        VALUES (?, ?, ?, ?, ?)
-                        ''', (
-                            student_id,
-                            q_num,
-                            answer,
-                            json.dumps(question_page_map.get(q_num, [])),
-                            datetime.now().isoformat()
-                        ))
-                        self.conn.commit()
-                    except sqlite3.Error as e:
-                        logger.error(f"Error storing answer for {student_id}, question {q_num}: {e}")
-
-            logger.info(f"Processed student paper for {student_id}")
-            return answers_by_id
+            for page in doc:
+                page_text = page.get_text().strip()
+                if page_text:
+                    text_content += page_text + "\n"
+                else:
+                    # Page likely contains image; apply OCR
+                    self.logger.info(f"No text on page, using OCR: Page {page.number}")
+                    pix = page.get_pixmap(dpi=300)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    ocr_text = pytesseract.image_to_string(img)
+                    text_content += ocr_text + "\n"
+            return text_content
         except Exception as e:
-            logger.error(f"Error processing student paper {pdf_path}: {e}")
-            return {}
-
-    def get_student_answer(self, student_id: str, question_id: int) -> Optional[str]:
-        """Retrieve a student's answer for a specific question."""
+            self.logger.error(f"Failed to extract text from {pdf_path}: {e}")
+            return ""
+    
+    def process_directory(self, folder_path: str):
+        """
+        Process all PDF files in a directory. Saves output to 'student_answers.json'.
+        """
+        results = []
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                if file.lower().endswith(".pdf"):
+                    student_id = os.path.splitext(file)[0]
+                    pdf_path = os.path.join(root, file)
+                    text = self.extract_text_from_pdf(pdf_path)
+                    results.append({"student_id": student_id, "answer_text": text})
+        
+        output_path = "student_answers.json"
         try:
-            self.cursor.execute('''
-            SELECT answer_text FROM student_answers 
-            WHERE student_id = ? AND question_id = ?
-            ''', (student_id, question_id))
-            result = self.cursor.fetchone()
-            return result[0] if result else None
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving answer for {student_id}, question {question_id}: {e}")
-            return None
-
-    def get_student_answers(self, student_id: str) -> Dict[str, str]:
-        """Retrieve all answers for a student."""
-        try:
-            self.cursor.execute('''
-            SELECT question_id, answer_text FROM student_answers 
-            WHERE student_id = ?
-            ''', (student_id,))
-            return {str(row[0]): row[1] for row in self.cursor.fetchall()}
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving answers for {student_id}: {e}")
-            return {}
-
-    def get_all_students(self) -> List[tuple]:
-        """Get list of all registered students."""
-        try:
-            self.cursor.execute('SELECT student_id, name FROM students')
-            return self.cursor.fetchall()
-        except sqlite3.Error as e:
-            logger.error(f"Error retrieving students: {e}")
-            return []
-
-    def close(self):
-        """Close database connection."""
-        try:
-            self.conn.close()
-            logger.info("Closed student processor database connection")
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump({"students": results}, f, indent=2)
+            self.logger.info(f"Student answers saved to {output_path}.")
         except Exception as e:
-            logger.error(f"Error closing database: {e}")
+            self.logger.error(f"Failed to save student answers: {e}")
+
+if __name__ == "__main__":
+    # Example usage: process 'student_answers/' directory
+    sp = StudentProcessor()
+    student_folder = "student_answers"
+    sp.process_directory(student_folder)

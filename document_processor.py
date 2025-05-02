@@ -1,166 +1,133 @@
+import os
 import json
+import logging
+from typing import List
 import fitz  # PyMuPDF
+import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
-import faiss
-import pickle
-import logging
-from typing import List, Dict
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
-    def __init__(self, embedding_model_name: str = "all-MiniLM-L6-v2", metric: str = "cosine"):
-        self.embedding_model = SentenceTransformer(embedding_model_name)
-        self.metric = metric
-        self.questions = []
-        self.syllabus = {}
-        self.documents = []
-        self.text_chunks = []
-        self.chunk_sources = []
+    """
+    Processes textbook PDF files to build a searchable FAISS index for course content.
+    Loads the static syllabus (syllabus.json) and embeds text chunks with SentenceTransformer.
+    """
+    def __init__(self, textbook_dir: str = "textbooks", index_path: str = "corpus.index",
+                 syllabus_path: str = "syllabus.json"):
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        
+        self.textbook_dir = textbook_dir
+        self.index_path = index_path
+        self.syllabus_path = syllabus_path
+        
+        # Load static syllabus
+        self.syllabus = self.load_syllabus()
+        
+        # Initialize embedding model for context retrieval
+        self.embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
+        
         self.index = None
-
-    def load_questions(self, file_path: str):
-        """Load questions from a JSON file."""
+        self.text_chunks = []  # maps index ids to text chunks
+        
+        # Build or load FAISS index
+        if os.path.exists(self.index_path):
+            self.logger.info(f"Loading existing FAISS index from {self.index_path}")
+            self.index = faiss.read_index(self.index_path)
+        else:
+            self.build_index()
+    
+    def load_syllabus(self):
+        """
+        Load syllabus information from a JSON file (static).
+        """
         try:
-            with open(file_path, "r") as file:
-                self.questions = json.load(file)
-            logger.info(f"Loaded {len(self.questions)} questions from {file_path}")
+            with open(self.syllabus_path, 'r', encoding='utf-8') as f:
+                syllabus = json.load(f)
+            self.logger.info("Syllabus loaded successfully.")
+            return syllabus
         except Exception as e:
-            logger.error(f"Error loading questions: {e}")
-            raise
-
-    def load_syllabus(self, file_path: str):
-        """Load syllabus from a JSON file."""
+            self.logger.error(f"Failed to load syllabus: {e}")
+            return {}
+    
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """
+        Extract text from a PDF file using PyMuPDF.
+        """
+        text = ""
         try:
-            with open(file_path, "r") as file:
-                self.syllabus = json.load(file)
-            logger.info(f"Loaded syllabus from {file_path}")
+            doc = fitz.open(pdf_path)
+            self.logger.info(f"Extracting text from {pdf_path}")
+            for page in doc:
+                text += page.get_text()
+            return text
         except Exception as e:
-            logger.error(f"Error loading syllabus: {e}")
-            raise
+            self.logger.error(f"Error extracting from {pdf_path}: {e}")
+            return ""
+    
+    def chunk_text(self, text: str, max_words: int = 200) -> List[str]:
+        """
+        Chunk large text into smaller pieces (~max_words each).
+        """
+        words = text.split()
+        chunks = []
+        for i in range(0, len(words), max_words):
+            chunk = " ".join(words[i:i + max_words])
+            chunks.append(chunk)
+        return chunks
+    
+    def build_index(self):
+        """
+        Build FAISS index: extract text from PDFs, chunk it, embed chunks, and index.
+        """
+        self.logger.info("Building FAISS index from textbook PDFs.")
+        all_chunks = []
+        for root, dirs, files in os.walk(self.textbook_dir):
+            for file in files:
+                if file.lower().endswith(".pdf"):
+                    pdf_path = os.path.join(root, file)
+                    text = self.extract_text_from_pdf(pdf_path)
+                    chunks = self.chunk_text(text)
+                    all_chunks.extend(chunks)
+        
+        self.text_chunks = all_chunks
+        if not all_chunks:
+            self.logger.warning("No text chunks found. FAISS index will be empty.")
+            self.index = faiss.IndexFlatL2(self.embedding_dim)
+            return
+        
+        # Compute embeddings for all chunks
+        self.logger.info("Computing embeddings for text chunks.")
+        embeddings = self.embedding_model.encode(all_chunks, show_progress_bar=True)
+        embeddings = np.array(embeddings).astype("float32")
+        
+        # Build FAISS index (L2 distance)
+        self.logger.info("Creating FAISS index.")
+        index = faiss.IndexFlatL2(self.embedding_dim)
+        index.add(embeddings)
+        self.index = index
+        
+        # Save index
+        faiss.write_index(index, self.index_path)
+        self.logger.info(f"FAISS index built and saved to {self.index_path}.")
+    
+    def retrieve_context(self, query: str, top_k: int = 3) -> List[str]:
+        """
+        Retrieve top-k relevant text chunks from the FAISS index for a given query.
+        """
+        if self.index is None:
+            self.logger.warning("FAISS index not found. No context retrieved.")
+            return []
+        query_vec = self.embedding_model.encode([query]).astype("float32")
+        distances, indices = self.index.search(query_vec, top_k)
+        results = []
+        for idx in indices[0]:
+            if idx < len(self.text_chunks):
+                results.append(self.text_chunks[idx])
+        return results
 
-    def extract_text_from_pdfs(self, pdf_files: List[str]):
-        """Extract text from PDF files using PyMuPDF."""
-        self.documents = []
-        for pdf_file in pdf_files:
-            try:
-                doc = fitz.open(pdf_file)
-                pdf_text = ""
-                for page_num in range(doc.page_count):
-                    page = doc.load_page(page_num)
-                    pdf_text += page.get_text("text") + "\n"
-                self.documents.append({"text": pdf_text, "source": pdf_file, "page": page_num + 1})
-                doc.close()
-                logger.info(f"Extracted text from {pdf_file}")
-            except Exception as e:
-                logger.error(f"Error extracting text from {pdf_file}: {e}")
-
-    def chunk_documents(self, chunk_size: int = 500, overlap: int = 50):
-        """Chunk the extracted document text into smaller chunks."""
-        self.text_chunks = []
-        self.chunk_sources = []
-        for doc in self.documents:
-            text = doc["text"]
-            source = doc["source"]
-            for i in range(0, len(text), chunk_size - overlap):
-                chunk = text[i:i + chunk_size]
-                if chunk.strip():
-                    self.text_chunks.append(chunk)
-                    self.chunk_sources.append({"source": source, "page": doc["page"]})
-        logger.info(f"Created {len(self.text_chunks)} chunks")
-
-    def embed_chunks(self) -> np.ndarray:
-        """Embed the chunks of text into embeddings."""
-        try:
-            embeddings = self.embedding_model.encode(self.text_chunks, convert_to_numpy=True)
-            logger.info(f"Embedded {len(self.text_chunks)} chunks")
-            return embeddings
-        except Exception as e:
-            logger.error(f"Error embedding chunks: {e}")
-            raise
-
-    def build_faiss_index(self):
-        """Build a FAISS index from the embeddings of text chunks."""
-        try:
-            embeddings = self.embed_chunks()
-            dimension = embeddings.shape[1]
-            self.index = faiss.IndexFlatL2(dimension)
-            self.index.add(embeddings)
-            logger.info("Built FAISS index")
-        except Exception as e:
-            logger.error(f"Error building FAISS index: {e}")
-            raise
-
-    def save_index(self, index_file: str, source_file: str):
-        """Save the FAISS index and chunk sources to files."""
-        try:
-            faiss.write_index(self.index, index_file)
-            with open(source_file, "wb") as f:
-                pickle.dump(self.chunk_sources, f)
-            logger.info(f"Saved FAISS index to {index_file} and sources to {source_file}")
-        except Exception as e:
-            logger.error(f"Error saving FAISS index: {e}")
-            raise
-
-    def load_index(self, index_file: str, source_file: str):
-        """Load a FAISS index and chunk sources from files."""
-        try:
-            self.index = faiss.read_index(index_file)
-            with open(source_file, "rb") as f:
-                self.chunk_sources = pickle.load(f)
-            logger.info(f"Loaded FAISS index from {index_file} and sources from {source_file}")
-        except Exception as e:
-            logger.error(f"Error loading FAISS index: {e}")
-            raise
-
-    def analyze_co_distribution(self) -> Dict:
-        """Analyze the distribution of questions across Course Outcomes (COs)."""
-        try:
-            co_counts = {}
-            co_marks = {}
-            co_questions = {}
-            co_definitions = {
-                f"co{i+1}": outcome 
-                for i, outcome in enumerate(self.syllabus.get("Course Outcomes", []))
-            }
-
-            for q in self.questions:
-                co = q.get("co_id", "").lower()
-                if co:
-                    co_counts[co] = co_counts.get(co, 0) + 1
-                    co_marks[co] = co_marks.get(co, 0) + int(q.get("marks", 0))
-                    if co not in co_questions:
-                        co_questions[co] = []
-                    co_questions[co].append(q["question_number"])
-
-            total_questions = len(self.questions)
-            total_marks = sum(int(q.get("marks", 0)) for q in self.questions)
-
-            analysis = {
-                "co_definitions": co_definitions,
-                "co_counts": co_counts,
-                "co_marks": co_marks,
-                "co_questions": co_questions,
-                "total_questions": total_questions,
-                "total_marks": total_marks,
-                "co_question_percentage": {
-                    co: (count / total_questions) * 100 
-                    for co, count in co_counts.items()
-                },
-                "co_marks_percentage": {
-                    co: (marks / total_marks) * 100 
-                    for co, marks in co_marks.items()
-                }
-            }
-            logger.info("Completed CO distribution analysis")
-            return analysis
-        except Exception as e:
-            logger.error(f"Error analyzing CO distribution: {e}")
-            raise
-
-    def close(self):
-        """Close any resources used by the DocumentProcessor."""
-        # Nothing specific to close for this class
-        logger.info("Closed DocumentProcessor resources")
+if __name__ == "__main__":
+    # Example: build the index from PDFs in 'textbooks/'
+    processor = DocumentProcessor()
+    processor.build_index()

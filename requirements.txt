@@ -1,5 +1,5 @@
 PyMuPDF==1.24.10
-numpy==2.1.1
+numpy==1.24.4              
 sentence-transformers==3.2.0
 faiss-cpu==1.8.0
 transformers==4.44.2

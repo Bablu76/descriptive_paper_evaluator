@@ -1,35 +1,37 @@
-[
-  {
-    "id": 1,
-    "question_number": 1,
-    "question_text": "Define Space Complexity. Explain the components used to compute space complexity.",
-    "marks": 2,
-    "rubric": [
-      "Define space complexity clearly",
-      "Explain fixed, variable, and return space components"
-    ],
-    "co_id": "co1"
-  },
-  {
-    "id": 2,
-    "question_number": 2,
-    "question_text": "Develop Find operation in Disjoints sets.",
-    "marks": 2,
-    "rubric": [
-      "Provide pseudocode for Find operation",
-      "Explain path compression"
-    ],
-    "co_id": "co2"
-  },
-  {
-    "id": 3,
-    "question_number": 3,
-    "question_text": "Define Divide and Conquer strategy.",
-    "marks": 2,
-    "rubric": [
-      "Define Divide and Conquer",
-      "Mention key steps: divide, conquer, combine"
-    ],
-    "co_id": "co3"
-  }
-]
+{
+  "questions": [
+    {
+      "id": 1,
+      "question_number": 1,
+      "question_text": "Define Space Complexity. Explain the components used to compute space complexity.",
+      "marks": 2,
+      "rubric": [
+        "Define space complexity clearly",
+        "Explain fixed, variable, and return space components"
+      ],
+      "co_id": "co1"
+    },
+    {
+      "id": 2,
+      "question_number": 2,
+      "question_text": "Develop Find operation in Disjoints sets.",
+      "marks": 2,
+      "rubric": [
+        "Provide pseudocode for Find operation",
+        "Explain path compression"
+      ],
+      "co_id": "co2"
+    },
+    {
+      "id": 3,
+      "question_number": 3,
+      "question_text": "Define Divide and Conquer strategy.",
+      "marks": 2,
+      "rubric": [
+        "Define Divide and Conquer",
+        "Mention key steps: divide, conquer, combine"
+      ],
+      "co_id": "co3"
+    }
+  ]
+}

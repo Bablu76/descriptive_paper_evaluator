@@ -1,25 +1,25 @@
 {
   "answers": [
     {
-      "question": "",
+      "question": "Define Space Complexity. Explain the components used to compute space complexity.",
       "marks": 2,
-      "CO": null,
+      "CO": "co1",
       "keywords": [],
-      "model_answer": "e) 2 4 5 7 1 2 3 6 1 2 3 4 i j k (f) 2 4 5 7 1 2 3 6 1 2 3 4 i"
+      "model_answer": "The space complexity component is the number of particles in the space. The number of particles in the space is the number of particles in the space. The number of particles in the space is the number"
     },
     {
-      "question": "",
+      "question": "Develop Find operation in Disjoints sets.",
       "marks": 2,
-      "CO": null,
+      "CO": "co2",
       "keywords": [],
-      "model_answer": "e) 2 4 5 7 1 2 3 6 1 2 3 4 i j k (f) 2 4 5 7 1 2 3 6 1 2 3 4 i"
+      "model_answer": "Find operation in Disjoints sets."
     },
     {
-      "question": "",
+      "question": "Define Divide and Conquer strategy.",
       "marks": 2,
-      "CO": null,
+      "CO": "co3",
       "keywords": [],
-      "model_answer": "e) 2 4 5 7 1 2 3 6 1 2 3 4 i j k (f) 2 4 5 7 1 2 3 6 1 2 3 4 i"
+      "model_answer": "Using a dbc program, divide and conquer is a programming algorithm that is used to program a computer program."
     }
   ]
 }

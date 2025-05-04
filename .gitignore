@@ -1,8 +1,14 @@
 # ignore environment file containing secrets
 # .env
-# components/__pycache__
-tests/__pycache__
 paper_env
-__pycache__
-.cache
-
+cache
+modules/__pycache__
+modules/feedback_reports
+modules/student_answers
+modules/textbooks
+modules/vector_store_cache
+modules/evaluation_results.db
+modules/model_answers.json
+modules/questions.json
+modules/student_answers.json
+modules/syllabus.json

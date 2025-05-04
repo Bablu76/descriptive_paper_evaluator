@@ -1,0 +1,45 @@
+
+{
+  "questions":[
+  {
+    "Q_No": "1.0a",
+    "Question": "Define Space Complexity.  Explain the components used to compute space complexity.",
+    "Marks": 2,
+    "CO": "co1",
+    "Rubric": [
+      "Define space complexity clearly",
+      "Explain fixed, variable, and return space components"
+    ]
+  },
+  {
+    "Q_No": "1.0b",
+    "Question": "Develop Find operation in Disjoints sets.",
+    "Marks": 2,
+    "CO": "co2",
+    "Rubric": [
+      "Provide pseudocode for Find operation",
+      "Explain path compression"
+    ]
+  },
+  {
+    "Q_No": "1.0c",
+    "Question": "Define Divide and Conquer strategy.",
+    "Marks": 2,
+    "CO": "co3",
+    "Rubric": [
+      "Define Divide and Conquer",
+      "Mention key steps: divide, conquer, combine"
+    ]
+  },
+  {
+    "Q_No": "2.0b.",
+    "Question": "Discuss Disjoint sets Union and Find Operations with performance Improvements",
+    "Marks": 5,
+    "CO": "co2",
+    "Rubric": [
+      "Define Disjoint sets",
+      "Explain union and find operations with optimizations"
+    ]
+  }
+]
+}

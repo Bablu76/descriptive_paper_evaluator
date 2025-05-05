@@ -7,12 +7,8 @@ import torch
 import os
 import time
 from collections import Counter
-from typing import List, Optional # Added Optional
+from typing import List, Optional, Tuple # Added Tuple
 from dotenv import load_dotenv
-from huggingface_hub import InferenceClient
-# from huggingface_hub.inference._generated.types import TextGenerationParameters
-from huggingface_hub.utils import HfHubHTTPError # Keep this one from utils
-from huggingface_hub.errors import InferenceTimeoutError # Import the error from its new location
 import requests
 
 # Import transformers components for the local fallback model
@@ -20,8 +16,8 @@ from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers import logging as transformers_logging
 
 # Local module imports
-from document_processor import DocumentProcessor
-from vector_store import VectorStore
+from .document_processor import DocumentProcessor
+from .vector_store import VectorStore
 
 # Suppress verbose transformers logging
 transformers_logging.set_verbosity_error()
@@ -33,6 +29,11 @@ logger = logging.getLogger(__name__)
 # --- Load Environment Variables ---
 load_dotenv()
 HF_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+print(f">>> HF_API_TOKEN env var is: {os.getenv('HUGGINGFACE_API_TOKEN')!r}")
+
+from huggingface_hub import InferenceClient
+from huggingface_hub.utils import HfHubHTTPError # Keep this one from utils
+from huggingface_hub.errors import InferenceTimeoutError # Import the error from its new location
 if not HF_API_TOKEN:
     logger.warning("HUGGINGFACE_API_TOKEN not found. API calls will fail, relying on local fallback.")
 # -----------------------------------
@@ -180,80 +181,122 @@ class AnswerGenerator:
              return None
 
 
-    def generate_answer(self, question: str, marks: int = 0, co_id: str = None, rubric: List[str] = None) -> str:
+    def generate_answer(self, question: str, marks: int = 0, co_id: str = None, rubric: List[str] = None) ->Tuple[str,List[str]]:
         """
         Generates a single model answer, trying the API first and falling back to local model if needed.
+        Uses a consistent prompt structure for both models with proper context retrieval.
         """
         rubric = rubric or []
-        # --- Get Context (same logic) ---
-        context_text = "" ; context_chunks = []
+        
+        # --- Get Context - Fixed to properly retrieve from vector store ---
+        context_chunks = []
         if self.vector_store:
-            try: context_chunks = self.vector_store.retrieve_context(question, top_k=3); context_text = "\n".join(context_chunks) if context_chunks else ""; logger.debug(f"Retrieved {len(context_chunks)} context chunks.")
-            except Exception as e: logger.error(f"Failed to retrieve context: {e}"); context_text = "[Context retrieval failed]"
-        else: logger.warning("Vector store not provided."); context_text = ""
-
-        # --- Prepare Prompt Components (same logic) ---
+            try:
+                # Clean the question for better context retrieval
+                # Remove stopwords and question words from the query to improve retrieval accuracy
+                stopwords_pattern = r'\b(the|a|an|in|of|for|to|and|or|is|are|with|by|on|at|what|when|where|why|how|define|explain|discuss|describe|analyze|evaluate|compare|contrast|list|identify|enumerate|outline|illustrate|demonstrate)\b'
+                search_query = re.sub(stopwords_pattern, '', question.lower())
+                search_query = re.sub(r'\s+', ' ', search_query).strip()
+                
+                # Get context from vector store (not directly searching the question)
+                context_chunks = self.vector_store.retrieve_context(search_query, top_k=3)
+                logger.debug(f"Retrieved {len(context_chunks)} context chunks.")
+            except Exception as e:
+                logger.error(f"Failed to retrieve context: {e}")
+                context_chunks = []
+        
+        # --- Prepare Consistent Prompt Components ---
+        # Scale tokens based on marks as specified
+        tokens_per_mark = 60
+        approx_length = marks * tokens_per_mark
+        
+        # Get CO text if available
         co_key = str(co_id).lower() if co_id else None
         co_text = self.co_map.get(co_key, "") if co_key else ""
-        rubric_text = "\n".join(f"- {point.strip()}" for point in rubric if point.strip()) if rubric else "No specific rubric points provided."
-        ctx_block = f"Relevant Background Context from Textbook:\n---\n{context_text}\n---\n\n" if context_text and context_text != "[Context retrieval failed]" else ""
-
-        # --- API Prompt (Mistral Instruct format) ---
-        api_prompt = f"[INST] You are an expert university teaching assistant generating a high-quality model answer for an exam question worth {marks} marks.\n"
-        # ... (rest of the detailed API prompt instructions as defined before) ...
-        api_prompt += f"Generate the Model Answer now: [/INST]"
-
+        
+        # Format rubric text consistently
+        rubric_text = "\n".join(f"{i+1}. {item}" for i, item in enumerate(rubric)) if rubric else "No specific rubric points provided."
+        
+        # Format context text consistently
+        if context_chunks:
+            ctx_text = "\n".join(
+                f"- {c[:200]}..." if len(c) > 200 else f"- {c}"
+                for c in context_chunks
+            )
+            ctx_block = f"Relevant context (use if needed):\n{ctx_text}\n\n"
+        else:
+            ctx_block = ""
+        
+        # --- Create a consistent base prompt for both models ---
+        base_prompt = (
+            f"You are an expert exam answer writer. Write a model answer worth {marks} marks "
+            f"(approx. {approx_length} tokens) for the question below.\n\n"
+        )
+        if co_text:
+            base_prompt += f"Course Outcome to address: {co_text}\n\n"
+        # base_prompt += ctx_block
+        base_prompt += f"Question: {question}\n\n"
+        base_prompt += (
+            f"Make sure your answer thoroughly covers all of these key points:\n"
+            f"{rubric_text}\n\n"
+            f"Do NOT include the rubric point headings in your response.\n"
+            f"1. Explain each concept clearly.\n"
+            f"2. Include examples only when the question specifically requires them for 2-mark questions, but for higher-mark questions provide examples.\n"
+            f"3. Use a structured, academic tone.\n\n"
+            f"Answer:\n"
+        )
+        
+        # --- API Prompt - Modified to match the proper format while using Mistral's special tokens ---
+        api_prompt = f"[INST] {base_prompt} [/INST]"
+        
         # --- Try API Generation ---
         api_result = self._generate_with_api(api_prompt, marks)
-
         if api_result is not None:
-             # API succeeded (or returned a non-None error string which we treat as the result)
-             # Let's ensure it's not an explicit error message we want to bypass
-             if not api_result.startswith("[Error:"):
-                 logger.info("Using result from Hugging Face Inference API.")
-                 return api_result
-             else:
-                  logger.warning(f"API attempt returned an error message: {api_result}. Proceeding to fallback.")
-                  # Fall through to local fallback
-
+            # API succeeded (or returned a non-None error string which we treat as the result)
+            # Let's ensure it's not an explicit error message we want to bypass
+            if not api_result.startswith("[Error:"):
+                logger.info("Using result from Hugging Face Inference API.")
+                keywords = self._extract_keywords(api_result)
+                return api_result , keywords
+            else:
+                logger.warning(f"API attempt returned an error message: {api_result}. Proceeding to fallback.")
+                # Fall through to local fallback
+        
         # --- API Failed or Unavailable - Try Local Fallback ---
         logger.info("API failed or unavailable. Attempting local fallback generation...")
-
-        # --- Local Prompt (Simpler format for models like T5) ---
-        local_prompt = f"Generate a model answer for the following university exam question."
-        local_prompt += f" The question is worth {marks} marks."
-        if co_text: local_prompt += f" Address Course Outcome: {co_id} - {co_text}."
-        local_prompt += f"\n\nQuestion:\n{question}"
-        if ctx_block: local_prompt += f"\n\nRelevant Context:\n{context_text}"
-        local_prompt += f"\n\nKey Rubric Points:\n{rubric_text}"
-        local_prompt += f"\n\nAnswer:"
-        #------------------------------
-
+        
+        # --- Local Prompt - Using the same consistent base prompt ---
+        local_prompt = base_prompt  # Use the same prompt structure for consistency
+        
         local_result = self._generate_with_local(local_prompt, marks)
-
+        
         if local_result is not None:
-             logger.info(f"Using result from local fallback model '{self.fallback_local_model_id}'.")
-             return local_result
+            logger.info(f"Using result from local fallback model '{self.fallback_local_model_id}'.")
+            keywords = self._extract_keywords(local_result)
+            return local_result,keywords
         else:
-             logger.error("Both API and local fallback generation failed.")
-             # Return a consolidated error message
-             api_status = "Unavailable/Failed" if api_result is None or api_result.startswith("[Error:") else "OK but rejected?"
-             local_status = "Unavailable/Failed"
-             return f"[Error: Generation Failed (API Status: {api_status}, Fallback Status: {local_status})]"
+            logger.error("Both API and local fallback generation failed.")
+            # Return a consolidated error message
+            api_status = "Unavailable/Failed" if api_result is None or api_result.startswith("[Error:") else "OK but rejected?"
+            local_status = "Unavailable/Failed"
+            return f"[Error: Generation Failed (API Status: {api_status}, Fallback Status: {local_status})]",[]
+        
 
-
-    def extract_keywords(self, answer: str) -> List[str]:
-        # [No changes needed here]
-        if not isinstance(answer, str) or not answer: return []
-        try:
-            words = re.findall(r'\b[A-Z][a-zA-Z-]*[a-zA-Z]\b|\b[a-z]{3,}\b', answer)
-            stopwords = {'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'or', 'but','is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had','do', 'does', 'did', 'will', 'would', 'should', 'can', 'could', 'may', 'might','that', 'this', 'these', 'those', 'it', 'its', 'with', 'as', 'by', 'from','about', 'above', 'below', 'into', 'out', 'over', 'under', 'again', 'further','then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any','both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor','not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'answer','question', 'context', 'following', 'point', 'points', 'exam', 'model', 'generate', 'using', 'based', 'also'}
-            keywords = [w for w in words if w.lower() not in stopwords and len(w) > 2]
-            if not keywords: return []
-            keyword_counts = Counter(kw.lower() for kw in keywords)
-            return [word for word, _ in keyword_counts.most_common(7)]
-        except Exception as e: logger.error(f"Error extracting keywords: {e}"); return []
-
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Uses the LLM to extract comma-separated keywords from given text."""
+        if not text:  # Check if text is None or empty
+            logger.warning("Empty text provided to _extract_keywords. Returning empty list.")
+            return []
+        prompt = f"Extract the main keywords from the following text and return them as a comma-separated list: {text}"
+        api_out = self._generate_with_api(f"[INST] {prompt} [/INST]", 0)
+        if api_out:
+            kws = [k.strip() for k in api_out.split(',') if k.strip()]
+            return kws
+        local_out = self._generate_with_local(prompt, 0)
+        if local_out:
+            kws = [k.strip() for k in local_out.split(',') if k.strip()]
+            return kws
+        return []
 
     def generate_all(self, questions_file: str, output_file: str):
          """
@@ -283,10 +326,9 @@ class AnswerGenerator:
              if not isinstance(rubric, list): logger.warning(f"Rubric for Q '{question_text[:30]}...' not a list."); rubric = []
 
              # generate_answer now contains the API/fallback logic
-             model_ans = self.generate_answer(question_text, marks, co_id, rubric)
-             keywords = self.extract_keywords(model_ans)
+             model_ans,kwd = self.generate_answer(question_text, marks, co_id, rubric)
 
-             results.append({'question': question_text,'marks': marks,'CO': co_id,'keywords': keywords,'model_answer': model_ans})
+             results.append({'question': question_text,'marks': marks,'CO': co_id,'keywords':kwd,'model_answer': model_ans})
 
          logger.info(f"Saving {len(results)} generated answers to {output_file}")
          try:
@@ -310,7 +352,7 @@ if __name__ == '__main__':
      if not os.path.exists("syllabus.json"):
          with open("syllabus.json", "w") as f: json.dump({"Course Outcomes": ["Understand basic AI.", "Apply algorithms."]}, f)
      if not os.path.exists("questions.json"):
-         with open("questions.json", "w") as f: json.dump({"questions": [{"Question": "Explain the concept of Retrieval-Augmented Generation (RAG).", "Marks": 4, "CO": "CO1", "Rubric": ["Define RAG", "Retriever Role", "Generator Role"]}]}, f)
+         with open("questions.json", "w") as f: json.dump({"questions": [{"Question": "Explain the concept of Divide and Conquer.", "Marks": 5, "CO": "CO1", "Rubric": ["Define DaQ", "Operations", "Examples","Complexities"]}]}, f)
 
      # Initialize with defaults (Mistral API, Flan-T5 Base fallback)
      generator = AnswerGenerator(vector_store=dummy_vs, syllabus_path="syllabus.json")
@@ -320,7 +362,7 @@ if __name__ == '__main__':
         if output:
              logger.info(f"Example generation complete. Output: {output}")
              with open(output, 'r') as f:
-                 data = json.load(f);
+                 data = json.load(f)
                  if data.get('answers'):
                      print("\n--- Example Generated Answer ---")
                      print(f"Q: {data['answers'][0].get('question')}")

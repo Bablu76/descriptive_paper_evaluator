@@ -7,28 +7,29 @@ from pathlib import Path
 import time # To prevent rapid re-runs if needed
 
 # Import our refactored modules
-from document_processor import DocumentProcessor # Simplified version
-from vector_store import VectorStore # Advanced version
-from answer_generator import AnswerGenerator
-from evaluator import Evaluator
-from feedback_generator import FeedbackGenerator
-from student_processor import StudentProcessor
+from modules.document_processor import DocumentProcessor # Simplified version
+from modules.vector_store import VectorStore # Advanced version
+from modules.answer_generator import AnswerGenerator
+from modules.evaluator import Evaluator
+from modules.feedback_generator import FeedbackGenerator
+from modules.student_processor import StudentProcessor
 
 # --- Configuration ---
 st.set_page_config(page_title="Assessment Evaluation System", page_icon="📝", layout="wide")
 
 # Directory Paths
 BASE_DIR = Path(__file__).resolve().parent # Assumes app.py is in the root project folder
-TEXTBOOK_DIR = BASE_DIR / "textbooks"
-STUDENT_DIR = BASE_DIR / "student_answers"
+TEXTBOOK_DIR = BASE_DIR / "data/textbooks"
+STUDENT_DIR = BASE_DIR / "data/student_answers"
+STUDENT_TEXT  = BASE_DIR / "data/student_answers_txt" # For plain-text files
 VSTORE_CACHE = BASE_DIR / "vector_store_cache" # Use Path object
 
 # File Paths (ensure they are relative to BASE_DIR or absolute)
-SYLLABUS_PATH = BASE_DIR / "syllabus.json"
-QUESTIONS_PATH = BASE_DIR / "questions.json"
-MODEL_ANSWERS_PATH = BASE_DIR / "model_answers.json"
-STUDENT_ANSWERS_PATH = BASE_DIR / "student_answers.json" # Output from StudentProcessor
-DB_PATH = BASE_DIR / "evaluation_results.db" # Use Path object
+SYLLABUS_PATH = BASE_DIR / "data/syllabus.json"
+QUESTIONS_PATH = BASE_DIR / "data/questions.json"
+MODEL_ANSWERS_PATH = BASE_DIR / "data/model_answers.json"
+STUDENT_ANSWERS_PATH = BASE_DIR / "data/Ext/student_answers.json" # Output from StudentProcessor
+DB_PATH = BASE_DIR / "data/evaluation_results.db" # Use Path object
 FILE_STATE_CACHE = VSTORE_CACHE / "file_index.json" # Cache for textbook timestamps
 
 # Ensure directories exist
@@ -425,50 +426,69 @@ def manage_textbooks_and_index():
 
 
 def upload_student_answers():
-    """Handles uploading and processing of student answer PDFs."""
+    """Handles uploading and processing of student answer PDFs or plain-text files."""
     st.title("🧑‍🎓 Upload Student Answers")
 
-    st.subheader("Uploaded Student PDFs")
-    subs = sorted(list(STUDENT_DIR.glob("*.pdf")))
-    if subs:
-        for s in subs:
-            st.write(f"- {s.name}")
-    else:
-        st.info(f"No student answer PDFs found in '{STUDENT_DIR.name}'.")
+    mode = st.radio("Select input mode", ("PDF/OCR", "Plain Text"), index=0)
 
-    uploaded = st.file_uploader("Upload student answer PDFs (e.g., StudentID.pdf)", accept_multiple_files=True, type="pdf", key="student_uploader")
-    new_student_upload = False
-    if uploaded:
-        for file in uploaded:
-            path = STUDENT_DIR / file.name
-            try:
-                with open(path, "wb") as f:
-                    f.write(file.getbuffer())
-                st.success(f"Uploaded {file.name}")
-                new_student_upload = True
-            except Exception as e:
-                st.error(f"Failed to save {file.name}: {e}")
-        if new_student_upload:
-             st.rerun()
+    if mode == "PDF/OCR":
+        st.subheader("Uploaded Student PDFs")
+        pdfs = sorted(STUDENT_DIR.glob("*.pdf"))
+        if pdfs:
+            for pdf in pdfs:
+                st.write(f"- {pdf.name}")
+        else:
+            st.info(f"No PDFs in `{STUDENT_DIR}`")
 
-    st.markdown("---")
-    st.subheader("Process Answers")
-    st.markdown(f"This will extract text (using OCR if needed) from all PDFs in `{STUDENT_DIR.name}` and save the combined results to `{STUDENT_ANSWERS_PATH.name}`.")
+        up = st.file_uploader("Upload student answer PDFs", accept_multiple_files=True, type="pdf", key="stu_pdf")
+        if up:
+            for f in up:
+                (STUDENT_DIR / f.name).write_bytes(f.getbuffer())
+            st.success("PDFs uploaded.")
+            st.experimental_rerun()
 
-    if st.button("Process Student Answers", disabled=not subs):
-        with st.spinner("Extracting text from student PDFs (this can take time, especially with OCR)..."):
-            try:
-                sp = StudentProcessor()
-                # Process the directory; result is implicitly saved to STUDENT_ANSWERS_PATH
-                sp.process_directory(str(STUDENT_DIR), output_path=str(STUDENT_ANSWERS_PATH))
-                if STUDENT_ANSWERS_PATH.is_file():
-                     st.success(f"`{STUDENT_ANSWERS_PATH.name}` generated successfully.")
-                else:
-                     st.error("Processing finished, but output file was not created. Check logs.")
-            except Exception as e:
-                 st.error(f"An error occurred during student answer processing: {e}")
-                 import traceback
-                 st.error(f"Traceback: {traceback.format_exc()}")
+        st.markdown("---")
+        if pdfs and st.button("Process PDFs via OCR"):
+            with st.spinner("Running OCR on PDFs..."):
+                try:
+                    sp = StudentProcessor()
+                    sp.process_directory(
+                        folder=str(STUDENT_DIR),
+                        output_path=str(STUDENT_ANSWERS_PATH)
+                    )
+                    st.success(f"Processed PDFs → `{STUDENT_ANSWERS_PATH.name}`")
+                except Exception as e:
+                    st.error(f"OCR processing failed: {e}")
+
+    else:  # Plain Text mode
+        st.subheader("Uploaded Student .txt Files")
+        txts = sorted(STUDENT_TEXT.glob("*.txt"))
+        if txts:
+            for txt in txts:
+                st.write(f"- {txt.name}")
+        else:
+            st.info(f"No .txt files in `{STUDENT_TEXT}`")
+
+        up = st.file_uploader("Upload student answer .txt files", accept_multiple_files=True, type="txt", key="stu_txt")
+        if up:
+            for f in up:
+                (STUDENT_TEXT / f.name).write_bytes(f.getbuffer())
+            st.success(".txt files uploaded.")
+            st.rerun()
+
+        st.markdown("---")
+        if txts and st.button("Process Plain-Text Files"):
+            with st.spinner("Parsing .txt answers..."):
+                try:
+                    sp = StudentProcessor(delimiter=r"(\d+\.\d+[a-z]?)")
+                    sp.process_directory(
+                        folder=str(STUDENT_TEXT),
+                        input_type='text',
+                        output_path=str(STUDENT_ANSWERS_PATH)
+                    )
+                    st.success(f"Processed text → `{STUDENT_ANSWERS_PATH.name}`")
+                except Exception as e:
+                    st.error(f"Text processing failed: {e}")
 
 def generate_view_results():
     """Handles generation of model answers, evaluation, feedback, and viewing results."""
@@ -547,7 +567,7 @@ def generate_view_results():
                      try:
                          # FeedbackGenerator expects output directory, let's assume current dir for simplicity
                          # or create a dedicated 'feedback' dir
-                         feedback_dir = BASE_DIR / "feedback_reports"
+                         feedback_dir = BASE_DIR / "data/feedback_reports"
                          os.makedirs(feedback_dir, exist_ok=True)
 
                          fg = FeedbackGenerator(db_path=str(DB_PATH))

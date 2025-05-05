@@ -1,0 +1,50 @@
+1.0a: The space complexity of an algorithm quantifies the memory consumption as a function of input size. Components used to compute space complexity include:
+
+Fixed space: Space for instruction storage, simple variables, constants, and other space that doesn't depend on input size.
+Variable space: Space that depends on input size, including dynamically allocated memory, recursion stack space, and data structures whose size varies with input.
+Return space: Space required for storing return values and parameters passed during function calls.
+
+
+1.0b: The Find operation in Disjoint Sets helps determine which set a particular element belongs to. Implementation with path compression:
+if parent[x] ≠ x:
+parent[x] = FIND(parent[x]) // Path compression
+return parent[x]
+
+Path compression flattens the tree structure, significantly reducing the height of the trees and improving the time complexity of subsequent operations.
+
+
+1.0c: Divide and Conquer is an algorithmic strategy that splits a problem into smaller subproblems, solves them recursively, and then merges their solutions.
+Key steps:
+
+Divide: Break the original problem into smaller subproblems.
+Conquer: Recursively solve each subproblem.
+Combine: Merge the solutions of subproblems to solve the original problem.
+
+
+2.0b: Disjoint Sets' Union and Find operations with performance improvements:
+Find: Determines which set an element belongs to by identifying its root.
+Union: Merges two sets by connecting their roots.
+Performance improvements include:
+a) Path Compression: During Find, update each visited node’s parent directly to the root, flattening the tree:
+
+ini
+FINO-WITH-PATH-COMPRESSION(x):  
+if parent[x] ≠ x:  
+  parent[x] = FIND(parent[x]) // Path compression  
+return parent[x]  
+b) Union by Rank/Size: Attach the shallower tree under the deeper to keep trees shallow:
+
+ini
+UNION-BY-RANK(x, y):  
+root_x = FIND(x)  
+root_y = FIND(y)  
+if root_x ≠ root_y:  
+  if rank[root_x] < rank[root_y]:  
+    parent[root_x] = root_y  
+  elseif rank[root_x] > rank[root_y]:  
+    parent[root_y] = root_x  
+  else:  
+    parent[root_y] = root_x  
+    rank[root_x] += 1  
+The combination of these optimizations yields a highly efficient data structure with near-constant amortized time per operation, specifically approaching O(α(n)), with α(n) being the inverse Ackermann function, which grows very slowly and is practically constant for all realistic input sizes.
+

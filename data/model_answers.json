@@ -1,0 +1,102 @@
+{
+  "answers": [
+    {
+      "question": "Define Space Complexity.  Explain the components used to compute space complexity.",
+      "marks": 2,
+      "CO": "co1",
+      "keywords": [
+        "Space Complexity",
+        "Fixed Space",
+        "Variable Space",
+        "Return Space",
+        "Algorithms",
+        "Input Data",
+        "Memory",
+        "Efficiency",
+        "Analysis",
+        "Function",
+        "Subroutine"
+      ],
+      "model_answer": "Space Complexity, in the context of algorithms, refers to the amount of memory or space required by an algorithm to run effectively, excluding the input data. It is a crucial aspect of analyzing algorithms as it provides insights into the efficiency of an algorithm in terms of space usage.\n\nThe components used to compute space complexity are:\n\n1. Fixed Space: This is the amount of space that an algorithm always requires, regardless of the size of the input data. Examples include the space required for storing the algorithm's constants, variables, and pointers.\n\n2. Variable Space: This is the amount of space that an algorithm requires to store the input data and any temporary data created during the execution of the algorithm. The size of the variable space can vary depending on the size of the input data.\n\n3. Return Space: This is the amount of space required to return the result of a function or a subroutine. The size of the return space is usually small, as it only needs to store the return value and possibly a few registers.\n\nIn summary, space complexity is the measure of the memory space required by an algorithm to run, and it is computed by adding the fixed space, variable space, and return space. Understanding space complexity is essential for comparing the efficiency of different algorithms and for designing algorithms that can handle large input data efficiently."
+    },
+    {
+      "question": "Develop Find operation in Disjoints sets.",
+      "marks": 2,
+      "CO": "co2",
+      "keywords": [
+        "Disjoint Sets",
+        "Find operation",
+        "pseudocode",
+        "root",
+        "parent nodes",
+        "path compression",
+        "optimization technique",
+        "time complexity",
+        "Disjoint Sets data structure",
+        "path compression technique",
+        "elements (A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G)",
+        "initial state",
+        "Find operation (on A",
+        "B",
+        "C",
+        "D)",
+        "path compression (on A",
+        "B",
+        "C",
+        "D)",
+        "Union operation"
+      ],
+      "model_answer": "In the context of Disjoint Sets, the Find operation is a fundamental algorithm used to determine the set that an element belongs to. Here's a simple pseudocode for the Find operation:\n\n```\nFind(x):\n  1. If x is the root (i.e., x is not a representative of another set), return x.\n  2. Otherwise, follow the pointers to the parent nodes until reaching the root, and return the root.\n  3. In the process, perform path compression by updating the parent of each encountered node to point directly to the root.\n```\n\nPath compression is an optimization technique used in the Find operation to improve the performance of the Disjoint Sets data structure. It reduces the height of the trees in the data structure, which can significantly decrease the time complexity of operations like Find and Union.\n\nPath compression works by updating the parent of each node encountered during the Find operation to point directly to the root. This way, when the same path is traversed again, the height of the tree is reduced, and the Find operation becomes faster.\n\nFor example, consider a Disjoint Sets data structure with the following elements: A, B, C, D, E, F, G. Initially, each element is its own set:\n\n```\nA -> A\nB -> B\nC -> C\nD -> D\nE -> E\nF -> F\nG -> G\n```\n\nIf we perform a Find operation on A, B, and then C, the path compression would update the tree as follows:\n\n```\nA -> A (initial state)\nA -> root (Find operation on A)\nB -> A (Find operation on B, path compression)\nC -> A (Find operation on C, path compression)\n```\n\nNow, if we perform another Find operation on D, the path from D to A would be compressed:\n\n```\nD -> D (initial state)\nD -> root (Find operation on D)\nD -> A (path compression)\nA -> root (Find operation on A)\n```\n\nThis way, the Find operation becomes faster as the height of the trees is reduced. The Union operation is then used to combine sets when necessary."
+    },
+    {
+      "question": "Define Divide and Conquer strategy.",
+      "marks": 2,
+      "CO": "co3",
+      "keywords": [
+        "Divide and Conquer",
+        "Dynamic Programming",
+        "Sub-problems",
+        "Recursive",
+        "Divide",
+        "Conquer",
+        "Combine",
+        "Original problem",
+        "Independent",
+        "Kadane's algorithm",
+        "Maximum sum",
+        "Contiguous subarray",
+        "Array of integers."
+      ],
+      "model_answer": "Divide and Conquer is a fundamental algorithmic strategy for solving complex problems by breaking them down into smaller, more manageable sub-problems. This strategy is a key component of the dynamic programming paradigm.\n\nThe Divide and Conquer strategy consists of three main steps:\n\n1. Divide: The original problem is divided into several smaller sub-problems, which are independent and similar to the original problem. This division is usually done recursively, with each sub-problem being further divided until the sub-problems are simple enough to be solved directly.\n\n2. Conquer: Each sub-problem is solved individually. The solutions to these sub-problems are then stored for future use, as solving the same sub-problem multiple times can be inefficient.\n\n3. Combine: The solutions to the sub-problems are combined to form a solution to the original problem. This is typically done by combining the solutions in a manner that follows the structure of the original problem.\n\nFor example, consider the problem of finding the maximum sum of a contiguous subarray within an array of integers. This problem can be solved using the Divide and Conquer strategy. The array is divided into two halves, the maximum sums of the two halves are found recursively, and the maximum sum of the entire array is the maximum of the maximum sums of the two halves and the sum of the elements in the middle, along with the maximum sum of the subarray on either side of the middle. This is the well-known Kadane's algorithm."
+    },
+    {
+      "question": "Discuss Disjoint sets Union and Find Operations with performance Improvements",
+      "marks": 5,
+      "CO": "co2",
+      "keywords": [
+        "Disjoint sets",
+        "partitioning",
+        "equivalence relations",
+        "Union",
+        "Find",
+        "path compression",
+        "root",
+        "element",
+        "set",
+        "Union by Rank",
+        "rank",
+        "subsets",
+        "elements",
+        "height",
+        "optimization"
+      ],
+      "model_answer": "Disjoint sets, also known as partitioning or equivalence relations, are a fundamental data structure used to efficiently solve problems involving disjoint, non-overlapping subsets of elements. Each element belongs to a unique set, and no two elements share the same set.\n\nThe two primary operations performed on disjoint sets are Union and Find. The Find operation is used to locate the representative element (also known as the root) of a set. Initially, each element is its own set, and the root of each set is the element itself. When the Find operation is called, a path compression technique is often employed to optimize the search. This technique reduces the height of the tree by making each found element point directly to the root, thus reducing the number of steps required to find the root.\n\nFor example, consider a set of elements {A, B, C, D, E}. Initially, each element is its own set: {A}, {B}, {C}, {D}, {E}. When we perform a Find operation on A, we traverse the path from A to its root: A -> A (since A is the root initially) -> B (since A and B are in the same set) -> C (since B and C are in the same set) -> D (since C and D are in the same set) -> E (since D and E are in the same set). The root of the set is now E.\n\nThe Union operation combines two disjoint sets into one. When two sets are unioned, one of the roots is made to point to the other root, thus reducing the number of roots and simplifying the structure. To further optimize the Union operation, the Union by Rank technique is employed. Each set has an associated rank, initially set to 0. When the Union operation is called, the rank of the smaller set is increased, and the root of the larger set is made to point to the root of the smaller set. This technique ensures that the taller tree (the one with a higher height) becomes the parent of the shorter tree, thus maintaining a balanced structure.\n\nFor example, if we perform a Union operation between sets {A} and {B}, since A and B are disjoint, we can make A point to B, resulting in the sets {A -> B} and {B}. If we then perform a Union operation between sets {C} and {D}, we can make C point to D, resulting in the sets {A -> B}, {C -> D}, and {D}. If we then perform a Union operation between sets {A -> B} and {C -> D}, we can make A point to C, resulting in the sets {A -> C}, {B -> C}, and {D}.\n\nIn conclusion, disjoint sets are a powerful data structure for solving problems involving disjoint subsets of elements. The Union and Find operations, optimized through path compression and Union by Rank techniques, ensure efficient and effective problem-solving."
+    }
+  ]
+}

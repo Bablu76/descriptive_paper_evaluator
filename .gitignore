@@ -1,5 +1,5 @@
 # ignore environment file containing secrets
-# .env
+.env
 paper_env
 cache
 modules/__pycache__
@@ -12,3 +12,5 @@ modules/model_answers.json
 modules/questions.json
 modules/student_answers.json
 modules/syllabus.json
+__pycache__
+vector_store_cache

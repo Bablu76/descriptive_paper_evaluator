@@ -1,6 +1,7 @@
 import os
 import json
 import sqlite3
+import torch
 import pandas as pd
 import streamlit as st
 from pathlib import Path
@@ -16,26 +17,26 @@ from modules.student_processor import StudentProcessor
 
 # --- Configuration ---
 st.set_page_config(page_title="Assessment Evaluation System", page_icon="📝", layout="wide")
-
 # Directory Paths
-BASE_DIR = Path(__file__).resolve().parent # Assumes app.py is in the root project folder
-TEXTBOOK_DIR = BASE_DIR / "data/textbooks"
-STUDENT_DIR = BASE_DIR / "data/student_answers"
-STUDENT_TEXT  = BASE_DIR / "data/student_answers_txt" # For plain-text files
-VSTORE_CACHE = BASE_DIR / "vector_store_cache" # Use Path object
+BASE_DIR = Path(__file__).resolve().parent  # Project root
+DATA_DIR = BASE_DIR / "data"
+TEXTBOOK_DIR = DATA_DIR / "textbooks"
+STUDENT_DIR = DATA_DIR / "student_answers"
+STUDENT_TEXT = DATA_DIR / "student_answers_txt"
+VSTORE_CACHE = DATA_DIR / "vector_store_cache"
+EXT_DIR = DATA_DIR / "Ext"  # For external outputs like processed student answers
 
-# File Paths (ensure they are relative to BASE_DIR or absolute)
-SYLLABUS_PATH = BASE_DIR / "data/syllabus.json"
-QUESTIONS_PATH = BASE_DIR / "data/questions.json"
-MODEL_ANSWERS_PATH = BASE_DIR / "data/model_answers.json"
-STUDENT_ANSWERS_PATH = BASE_DIR / "data/Ext/student_answers.json" # Output from StudentProcessor
-DB_PATH = BASE_DIR / "data/evaluation_results.db" # Use Path object
-FILE_STATE_CACHE = VSTORE_CACHE / "file_index.json" # Cache for textbook timestamps
+# File Paths
+SYLLABUS_PATH = DATA_DIR / "syllabus.json"
+QUESTIONS_PATH = DATA_DIR / "questions.json"
+MODEL_ANSWERS_PATH = DATA_DIR / "model_answers.json"
+STUDENT_ANSWERS_PATH = EXT_DIR / "student_answers.json"
+DB_PATH = DATA_DIR / "evaluation_results.db"
+FILE_STATE_CACHE = DATA_DIR/VSTORE_CACHE / "file_index.json"
 
 # Ensure directories exist
-os.makedirs(TEXTBOOK_DIR, exist_ok=True)
-os.makedirs(STUDENT_DIR, exist_ok=True)
-os.makedirs(VSTORE_CACHE, exist_ok=True) # VectorStore now handles this, but belt-and-suspenders
+for path in [TEXTBOOK_DIR, STUDENT_DIR, STUDENT_TEXT, VSTORE_CACHE, EXT_DIR]:
+    os.makedirs(path, exist_ok=True)
 
 # --- Session State Initialization ---
 if 'vector_store' not in st.session_state:
@@ -84,7 +85,6 @@ def save_file_state(state_data: dict, cache_path: Path):
         st.info(f"Saved file state to {cache_path}")
     except OSError as e:
         st.error(f"Failed to save file state cache {cache_path}: {e}")
-
 
 def get_evaluation_stats():
     """Retrieves summary statistics from the evaluation database."""
@@ -162,7 +162,7 @@ def display_sidebar():
              st.sidebar.write(f"❌ Index Not Built/Cached")
 
     st.sidebar.markdown("---")
-    st.sidebar.info("© 2024 AI Assessment Tools")
+    st.sidebar.info("© 2025 AI Assessment Tools")
     return page
 
 
@@ -317,7 +317,7 @@ def manage_textbooks_and_index():
     config_cache_exists = (
         Path(vs_check.index_path).is_file() and
         Path(vs_check.texts_path).is_file() and
-        Path(vs_check.metadata_path).is_file()
+        Path(vs_check.meta_path).is_file()
     )
 
     # Determine need for rebuild
@@ -395,7 +395,7 @@ def manage_textbooks_and_index():
 
                         # 4. Build the index
                         st.write("Building FAISS index (computing embeddings)...")
-                        vs.build_index(texts, doc_ids, use_multi_process=True) # Allow multi-process
+                        vs.build_index(texts, doc_ids, use_multiprocess=True) # Allow multi-process
 
                         # 5. Save the index and cache data
                         st.write("Saving index and cache data...")
@@ -424,7 +424,6 @@ def manage_textbooks_and_index():
         vs = st.session_state.vector_store
         st.success(f"Index currently loaded: Type='{vs.index_type}', Metric='{vs.metric}', Items={vs.index.ntotal if vs.index else 'N/A'}")
 
-
 def upload_student_answers():
     """Handles uploading and processing of student answer PDFs or plain-text files."""
     st.title("🧑‍🎓 Upload Student Answers")
@@ -445,7 +444,7 @@ def upload_student_answers():
             for f in up:
                 (STUDENT_DIR / f.name).write_bytes(f.getbuffer())
             st.success("PDFs uploaded.")
-            st.experimental_rerun()
+            st.rerun()
 
         st.markdown("---")
         if pdfs and st.button("Process PDFs via OCR"):
@@ -500,11 +499,11 @@ def generate_view_results():
     if st.session_state.get('vector_store') is None: missing_prereqs.append("Loaded FAISS Index")
     if not STUDENT_ANSWERS_PATH.is_file(): missing_prereqs.append(f"`{STUDENT_ANSWERS_PATH.name}`")
     if not MODEL_ANSWERS_PATH.is_file() and not missing_prereqs: # Model answers needed for eval/feedback but can be generated
-         # Check later if needed for evaluate/feedback
-         pass
+        # Check later if needed for evaluate/feedback
+        pass
 
     if missing_prereqs:
-         st.warning(f"Missing prerequisites for some actions: {', '.join(missing_prereqs)}. Please complete previous steps.")
+        st.warning(f"Missing prerequisites for some actions: {', '.join(missing_prereqs)}. Please complete previous steps.")
 
 
     # --- Action Buttons ---
@@ -516,21 +515,24 @@ def generate_view_results():
             if st.session_state['vector_store'] is None:
                 st.error("FAISS index not loaded. Please load or build it first.")
             elif not QUESTIONS_PATH.is_file():
-                 st.error(f"Questions file ({QUESTIONS_PATH.name}) not found.")
+                st.error(f"Questions file ({QUESTIONS_PATH.name}) not found.")
             else:
                 with st.spinner("Generating model answers (may take time depending on model and number of questions)..."):
                     try:
-                         # Assume syllabus provides context needed by AnswerGenerator
+                        # Assume syllabus provides context needed by AnswerGenerator
                         ag = AnswerGenerator(
                             vector_store=st.session_state['vector_store'],
-                            syllabus_path=str(SYLLABUS_PATH) # Pass path to syllabus
-                            # model_name='t5-small' # Can be configured if needed
+                            syllabus_path=str(SYLLABUS_PATH),
+                            fallback_model_id="google/flan-t5-base",  # Optional: customize fallback
+                            device="cuda" if torch.cuda.is_available() else "cpu",  # Device control
+                            context_k=3  # How many context chunks to use
                         )
+
                         output_path = ag.generate_all(questions_file=str(QUESTIONS_PATH), output_file=str(MODEL_ANSWERS_PATH))
                         if output_path and Path(output_path).is_file():
                             st.success(f"Model answers saved to `{MODEL_ANSWERS_PATH.name}`.")
                         else:
-                             st.error("Model answer generation finished, but output file was not created.")
+                            st.error("Model answer generation finished, but output file was not created.")
                     except Exception as e:
                         st.error(f"Error during model answer generation: {e}")
                         import traceback
@@ -541,16 +543,30 @@ def generate_view_results():
         model_answers_exist = MODEL_ANSWERS_PATH.is_file()
         student_answers_exist = STUDENT_ANSWERS_PATH.is_file()
         if st.button("Evaluate Student Answers", help="Compares student answers to model answers (similarity, coverage). Stores results in the database.", disabled=(not model_answers_exist or not student_answers_exist)):
-             if not model_answers_exist: st.error(f"Model answers file (`{MODEL_ANSWERS_PATH.name}`) not found. Generate them first.")
-             if not student_answers_exist: st.error(f"Processed student answers file (`{STUDENT_ANSWERS_PATH.name}`) not found. Process student answers first.")
+            if not model_answers_exist:
+                st.error(f"Model answers file (`{MODEL_ANSWERS_PATH.name}`) not found. Generate them first.")
+            if not student_answers_exist:
+                st.error(f"Processed student answers file (`{STUDENT_ANSWERS_PATH.name}`) not found. Process student answers first.")
 
-             if model_answers_exist and student_answers_exist:
+            if model_answers_exist and student_answers_exist:
                 with st.spinner("Evaluating student answers against model answers..."):
                     try:
+                        # Load model answers JSON
+                        with open(MODEL_ANSWERS_PATH, 'r') as f:
+                            model_answers = json.load(f)["answers"]
+                        # Load student answers JSON
+                        with open(STUDENT_ANSWERS_PATH, 'r') as f:
+                            student_data = json.load(f)
+                        student_answers = {
+                            s['student_id']: list(s['answer'].values())
+                            for s in student_data.get("students", [])
+                        }
+
+                        # Evaluate student answers
                         ev = Evaluator(db_path=str(DB_PATH))
-                        # Pass the paths directly to the evaluate method
-                        ev.evaluate(student_answers_path=str(STUDENT_ANSWERS_PATH), model_answers_path=str(MODEL_ANSWERS_PATH))
-                        # No return value needed, assumes success if no exception
+                        ev.evaluate(student_answers, model_answers)
+                        ev.close()
+
                         st.success(f"Evaluation complete. Results stored in `{DB_PATH.name}`.")
                     except Exception as e:
                         st.error(f"An error occurred during evaluation: {e}")
@@ -560,42 +576,36 @@ def generate_view_results():
     with col3:
         st.subheader("3. Generate Feedback")
         db_exists = DB_PATH.is_file()
-        if st.button("Generate Feedback Files", help="Creates individual JSON feedback files for students and an instructor summary based on evaluation results.", disabled=not db_exists):
-            if not db_exists: st.error(f"Evaluation database (`{DB_PATH.name}`) not found. Run evaluation first.")
+        if st.button("Generate Feedback Files", help="Creates individual feedback files for students and a summary report.", disabled=not db_exists):
+            if not db_exists:
+                st.error(f"Evaluation database (`{DB_PATH.name}`) not found. Run evaluation first.")
             else:
-                 with st.spinner("Compiling feedback reports..."):
-                     try:
-                         # FeedbackGenerator expects output directory, let's assume current dir for simplicity
-                         # or create a dedicated 'feedback' dir
-                         feedback_dir = BASE_DIR / "data/feedback_reports"
-                         os.makedirs(feedback_dir, exist_ok=True)
+                with st.spinner("Generating feedback reports..."):
+                    try:
+                        feedback_dir = BASE_DIR / "data2/feedback_reports"
+                        os.makedirs(feedback_dir, exist_ok=True)
 
-                         fg = FeedbackGenerator(db_path=str(DB_PATH))
-                         fg.generate_feedback(output_dir=str(feedback_dir)) # Pass output dir
+                        fg = FeedbackGenerator(db_path=str(DB_PATH))
+                        fg.generate_feedback(output_dir=str(feedback_dir))
+                        st.success(f"Feedback reports generated in `{feedback_dir}`.")
+                    except Exception as e:
+                        st.error(f"Error generating feedback: {e}")
+                        import traceback
+                        st.error(f"Traceback: {traceback.format_exc()}")
 
-                         st.success(f"Feedback JSON files created in '{feedback_dir.name}' directory.")
-                     except Exception as e:
-                         st.error(f"An error occurred during feedback generation: {e}")
-                         import traceback
-                         st.error(f"Traceback: {traceback.format_exc()}")
-
+    # Optional: display summary stats after evaluation
     st.markdown("---")
-    st.subheader("📊 View Evaluation Summary")
-    # Display summary metrics directly (similar to dashboard without reloading)
+    st.subheader("📊 Evaluation Summary")
     stats = get_evaluation_stats()
-    if stats and stats["overall"] and stats["overall"].get('avg_similarity') is not None : # Check if DB had data
-        st.metric("Overall Avg Similarity", f"{stats['overall']['avg_similarity']:.2%}")
-        st.metric("Overall Avg Coverage", f"{stats['overall']['avg_coverage']:.2%}")
-        st.metric("Total Plagiarism Flags", f"{stats['overall']['plagiarism_flags']}")
-        if st.button("Show Detailed Dashboard"):
-            # Navigate to dashboard (might require different approach than page reload)
-            # Simplest for now: Tell user to click Dashboard in sidebar
-             st.info("Navigate to the 'Dashboard' page from the sidebar to see detailed charts.")
+    if stats and stats["overall"] and stats["overall"].get('avg_similarity') is not None:
+        st.metric("Avg. Similarity", f"{stats['overall']['avg_similarity']:.2%}")
+        st.metric("Avg. Coverage", f"{stats['overall']['avg_coverage']:.2%}")
+        st.metric("Plagiarism Flags", f"{stats['overall']['plagiarism_flags']}")
+        if st.button("Go to Dashboard"):
+            st.info("Use the sidebar to navigate to the Dashboard for more detailed analysis.")
     else:
-        st.info("No summary data available. Run evaluation step first.")
-
-
-# --- Main Application Logic ---
+        st.info("Run evaluation to see summary statistics.")
+        
 if __name__ == "__main__":
     page = display_sidebar()
 
@@ -605,7 +615,7 @@ if __name__ == "__main__":
         upload_syllabus()
     elif page == "Upload Questions":
         upload_questions()
-    elif page == "Manage Textbooks & Index": # Matched sidebar name
+    elif page == "Manage Textbooks & Index":
         manage_textbooks_and_index()
     elif page == "Upload Student Answers":
         upload_student_answers()

@@ -2,7 +2,7 @@ import json
 import logging
 import fitz  # PyMuPDF
 from typing import List, Dict, Any
-import os # Needed for path operations if used within methods
+import os
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -10,9 +10,8 @@ logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     """
-    Handles loading source data like PDF text and configuration JSON files.
-    It does NOT handle chunking, embedding, or indexing; that's VectorStore's job.
-    Methods are static as they don't depend on instance state related to processing.
+    Handles loading source data like PDF text and configuration JSON files,
+    and normalizing question data. Does NOT handle embeddings or indexing.
     """
 
     @staticmethod
@@ -26,25 +25,32 @@ class DocumentProcessor:
         Returns:
             str: The extracted text, or an empty string if an error occurs.
         """
-        text = ""
-        logger.info(f"Attempting to extract text from: {pdf_path}")
-        try:
-            # Check if file exists before trying to open
-            if not os.path.isfile(pdf_path):
-                logger.error(f"PDF file not found at path: {pdf_path}")
-                return ""
+        if not isinstance(pdf_path, str) or not pdf_path:
+            logger.error(f"Invalid pdf_path provided: {pdf_path!r}")
+            return ""
 
+        if not os.path.isfile(pdf_path):
+            logger.error(f"PDF file not found at path: {pdf_path}")
+            return ""
+
+        text_chunks: List[str] = []
+        try:
             with fitz.open(pdf_path) as doc:
                 for page_num, page in enumerate(doc):
                     try:
-                        text += page.get_text() + "\n" # Add newline between pages
-                    except Exception as page_e:
-                        logger.warning(f"Error extracting text from page {page_num} of {pdf_path}: {page_e}")
-                logger.info(f"Successfully extracted text from {pdf_path} ({len(doc)} pages).")
+                        page_text = page.get_text().strip()
+                        if page_text:
+                            text_chunks.append(page_text)
+                        else:
+                            logger.debug(f"No text on page {page_num} of {pdf_path}, skipping.")
+                    except Exception as e:
+                        logger.warning(f"Error extracting text from page {page_num} of {pdf_path}: {e}")
+                logger.info(f"Extracted text from {pdf_path} ({len(doc)} pages).")
         except Exception as e:
             logger.error(f"Failed to open or process PDF {pdf_path}: {e}")
-            return "" # Return empty string on failure
-        return text.strip() # Remove leading/trailing whitespace from the combined text
+            return ""
+
+        return "\n".join(text_chunks)
 
     @staticmethod
     def extract_texts(pdf_paths: List[str]) -> List[str]:
@@ -52,12 +58,14 @@ class DocumentProcessor:
         Extracts text from a list of PDF paths.
 
         Args:
-            pdf_paths (List[str]): A list of paths to PDF files.
+            pdf_paths (List[str]): Paths to PDF files.
 
         Returns:
-            List[str]: A list containing the extracted text for each PDF.
-                       Order matches the input list. Contains empty strings for failed extractions.
+            List[str]: Extracted text strings; empty string for failures.
         """
+        if not isinstance(pdf_paths, list):
+            logger.error("extract_texts expects a list of paths.")
+            return []
         return [DocumentProcessor.extract_text(p) for p in pdf_paths]
 
     @staticmethod
@@ -66,68 +74,114 @@ class DocumentProcessor:
         Loads data from a JSON file.
 
         Args:
-            file_path (str): The path to the JSON file.
+            file_path (str): Path to the JSON file.
 
         Returns:
-            Dict[str, Any]: The loaded JSON data as a dictionary, or an empty dictionary on error.
+            Dict[str, Any]: Loaded data, or empty dict on error.
         """
-        logger.info(f"Attempting to load JSON data from: {file_path}")
-        try:
-             # Check if file exists
-            if not os.path.isfile(file_path):
-                logger.error(f"JSON file not found at path: {file_path}")
-                return {}
+        if not isinstance(file_path, str) or not file_path:
+            logger.error(f"Invalid file_path provided: {file_path!r}")
+            return {}
 
+        if not os.path.isfile(file_path):
+            logger.error(f"JSON file not found at path: {file_path}")
+            return {}
+
+        try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            logger.info(f"Successfully loaded JSON from {file_path}.")
+            logger.info(f"Loaded JSON data from {file_path}.")
             return data
         except json.JSONDecodeError as e:
-            logger.error(f"Error decoding JSON from {file_path}: {e}")
-            return {}
+            logger.error(f"JSON decode error in {file_path}: {e}")
         except Exception as e:
-            logger.error(f"Failed to read or parse JSON file {file_path}: {e}")
-            return {}
+            logger.error(f"Error reading {file_path}: {e}")
+        return {}
 
     @staticmethod
-    def load_questions(questions_path: str = "questions.json") -> List[dict]:
+    def load_questions(questions_path: str = "questions.json") -> List[Dict[str, Any]]:
         """
-        Loads questions from the specified JSON file.
-        Expects a structure like {"questions": [...]}.
+        Loads and normalizes questions from JSON.
+        Supports both old key 'Rubric' (list of str) and new 'Rubrics' (list of dicts).
 
         Args:
-            questions_path (str): Path to the questions JSON file.
+            questions_path (str): Path to questions JSON file.
 
         Returns:
-            List[dict]: The list of questions, or an empty list if loading fails
-                        or the 'questions' key is missing/not a list.
+            List[Dict[str, Any]]: Normalized question dicts with keys:
+                - Q_No: optional identifier
+                - Question: question text
+                - Marks: integer marks
+                - CO: course outcome id (if present)
+                - Rubrics: List[dict] each with 'Criteria' (str) and 'Marks' (int)
         """
         data = DocumentProcessor.load_json_file(questions_path)
-        questions = data.get('questions', [])
-
-        if not isinstance(questions, list):
-            logger.warning(f"'questions' key in {questions_path} is not a list. Returning empty list.")
+        raw = data.get("questions")
+        if not isinstance(raw, list):
+            logger.warning(f"'questions' missing or not a list in {questions_path}.")
             return []
 
-        # Optional: Add validation for individual question structure if needed
-        # for i, q in enumerate(questions):
-        #     if not isinstance(q, dict) or 'Question' not in q:
-        #         logger.warning(f"Invalid question format at index {i} in {questions_path}")
-        #         # Decide how to handle: filter out, return empty, raise error?
-        #         # For robustness, perhaps just log and keep valid ones, or filter later.
+        normalized: List[Dict[str, Any]] = []
+        for idx, item in enumerate(raw):
+            if not isinstance(item, dict):
+                logger.warning(f"Skipping non-dict question at index {idx}.")
+                continue
 
-        return questions
+            # Preserve Q_No if present
+            q_no = item.get("Q_No")
+
+            # Check essential fields
+            question_text = item.get("Question")
+            marks = item.get("Marks")
+            if not question_text or not isinstance(question_text, str):
+                logger.warning(f"Skipping question at index {idx}: missing or invalid 'Question'.")
+                continue
+            if not isinstance(marks, int):
+                logger.warning(f"Skipping question at index {idx}: missing or invalid 'Marks'.")
+                continue
+
+            # Normalize rubric key
+            raw_rubrics = []
+            if "Rubrics" in item and isinstance(item["Rubrics"], list):
+                raw_rubrics = item["Rubrics"]
+            elif "Rubric" in item and isinstance(item["Rubric"], list):
+                raw_rubrics = item["Rubric"]
+            else:
+                logger.info(f"No rubrics found for question at index {idx}, defaulting to empty list.")
+
+            clean_rubrics: List[Dict[str, Any]] = []
+            for r_idx, r in enumerate(raw_rubrics):
+                if isinstance(r, dict) and "Criteria" in r and "Marks" in r:
+                    clean_rubrics.append({
+                        "Criteria": str(r["Criteria"]),
+                        "Marks": int(r["Marks"])
+                    })
+                elif isinstance(r, str):
+                    # support old simple string rubric entries (no mark info)
+                    clean_rubrics.append({"Criteria": r, "Marks": 0})
+                else:
+                    logger.warning(f"Skipping invalid rubric entry at question {idx}, rubric {r_idx}.")
+
+            normalized.append({
+                **({"Q_No": q_no} if q_no is not None else {}),
+                "Question": question_text,
+                "Marks": marks,
+                **({"CO": item.get("CO")} if item.get("CO") else {}),
+                "Rubrics": clean_rubrics
+            })
+
+        logger.info(f"Loaded and normalized {len(normalized)} questions from {questions_path}.")
+        return normalized
 
     @staticmethod
-    def load_syllabus(syllabus_path: str = "syllabus.json") -> dict:
+    def load_syllabus(syllabus_path: str = "syllabus.json") -> Dict[str, Any]:
         """
-        Loads the syllabus JSON (e.g., course outcomes).
+        Loads the syllabus JSON file (e.g., course outcomes mapping).
 
         Args:
             syllabus_path (str): Path to the syllabus JSON file.
 
         Returns:
-            dict: The loaded syllabus data, or an empty dictionary on error.
+            Dict[str, Any]: Loaded syllabus data, or empty dict on error.
         """
-        # Assuming the entire file content is the syllabus structure
         return DocumentProcessor.load_json_file(syllabus_path)

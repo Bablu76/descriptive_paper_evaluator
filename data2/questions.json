@@ -1,0 +1,44 @@
+{
+"questions": [
+  {
+  "Q_No": "1.0a",
+  "Question": "Define Space Complexity.  Explain the components used to compute space complexity.",
+  "Marks": 2,
+  "CO": "co1",
+  "Rubrics": [
+  { "Criteria": "Definition of Space complexity", "Marks": 1 },
+  { "Criteria": "Components: fixed, variable, return", "Marks": 1 }
+  ]
+  },
+  {
+  "Q_No": "1.0b",
+  "Question": "Develop Find operation in Disjoint Sets.",
+  "Marks": 2,
+  "CO": "co2",
+  "Rubrics": [
+  { "Criteria": "Pseudocode for Find operation", "Marks": 1 },
+  { "Criteria": "Explain path compression", "Marks": 1 }
+  ]
+  },
+  {
+  "Q_No": "1.0c",
+  "Question": "Define Divide and Conquer strategy.",
+  "Marks": 2,
+  "CO": "co3",
+  "Rubrics": [
+  { "Criteria": "Definition of Divide and Conquer", "Marks": 1 },
+  { "Criteria": "Key steps: divide, conquer, combine", "Marks": 1 }
+  ]
+  },
+{
+  "Q_No": "2.0a",
+  "Question": "Describe Performance Analysis. Illustrate with suitable examples.",
+  "Marks": 5,
+  "CO": "co1",
+  "Rubrics": [
+  { "Criteria": "Definition of performance analysis", "Marks": 2 },
+  { "Criteria": "Provide illustrative examples", "Marks": 3 }
+  ]
+}
+]
+}

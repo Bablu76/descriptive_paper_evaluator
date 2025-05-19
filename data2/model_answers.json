@@ -1,0 +1,76 @@
+{
+  "answers": [
+    {
+      "question": "Define Space Complexity.  Explain the components used to compute space complexity.",
+      "marks": 2,
+      "CO": "co1",
+      "keywords": [
+        "Space complexity",
+        "memory space",
+        "algorithm",
+        "input size",
+        "performance",
+        "memory-constrained",
+        "fixed",
+        "variable",
+        "data structures",
+        "return"
+      ],
+      "model_answer": "Space complexity quantifies the amount of memory space an algorithm utilizes during its execution, relative to the input size. It's a crucial metric for evaluating algorithm performance, especially in memory-constrained environments.\n\nThe space complexity calculation considers several components.  The *fixed* part represents memory required regardless of the input size. This includes space for the program code, constants, and simple variables. The *variable* part depends on the input size; it encompasses dynamically allocated memory and the size of data structures that grow with the input. Finally, space is used for the *return*. This refers to any information or values that must be stored while the function completes before passing back to the calling function. Therefore, space complexity is the sum of the fixed and variable space requirements."
+    },
+    {
+      "question": "Develop Find operation in Disjoint Sets.",
+      "marks": 2,
+      "CO": "co2",
+      "keywords": [
+        "Disjoint Sets",
+        "Find operation",
+        "representative element",
+        "path compression",
+        "optimization",
+        "efficiency",
+        "parent pointer",
+        "tree structure",
+        "time complexity"
+      ],
+      "model_answer": "The Find operation in Disjoint Sets aims to determine the representative element of the set to which a given element belongs. This operation is crucial for efficiently determining if two elements are in the same set.\n\n```\nfunction FIND(x)\n  if x.parent != x\n    x.parent = FIND(x.parent) // Path compression\n  return x.parent\n```\n\nPath compression is a crucial optimization technique used within the Find operation.  When Find is called on an element `x`, it not only finds the representative of `x`'s set but also updates `x`'s parent pointer to point directly to the representative.  This process is applied recursively up the tree, effectively flattening the tree structure.  Subsequent Find operations on elements within that path will then have faster access to the representative, improving the overall efficiency of the Disjoint Sets data structure. This optimization significantly reduces the time complexity of subsequent Find operations."
+    },
+    {
+      "question": "Define Divide and Conquer strategy.",
+      "marks": 2,
+      "CO": "co3",
+      "keywords": [
+        "Divide and Conquer",
+        "algorithmic paradigm",
+        "problem solving",
+        "subproblems",
+        "recursion",
+        "base case",
+        "combine",
+        "Merge Sort"
+      ],
+      "model_answer": "The Divide and Conquer strategy is an algorithmic paradigm that solves a problem by recursively breaking it down into smaller, similar subproblems until these become simple enough to be solved directly.\n\nThe strategy involves three key steps. First, the original problem is **divided** into smaller, independent subproblems of the same type. Second, these subproblems are **conquered**, meaning they are solved recursively. If a subproblem is small enough, it is solved directly (base case). Finally, the solutions to the subproblems are **combined** to produce the solution to the original problem. This approach is exemplified by algorithms like Merge Sort, where the array is divided, sorted recursively, and then merged."
+    },
+    {
+      "question": "Describe Performance Analysis. Illustrate with suitable examples.",
+      "marks": 5,
+      "CO": "co1",
+      "keywords": [
+        "Performance analysis",
+        "algorithm",
+        "efficiency",
+        "computational resources",
+        "runtime",
+        "memory usage",
+        "input size",
+        "algorithm design",
+        "algorithm selection",
+        "time complexity",
+        "space complexity",
+        "Big O notation",
+        "execution time"
+      ],
+      "model_answer": "Performance analysis is the process of evaluating the efficiency of an algorithm, primarily concerning the computational resources it consumes. This analysis aims to predict how an algorithm's runtime and memory usage will scale with increasing input size. It is a crucial step in algorithm design and selection, ensuring that the chosen algorithm is suitable for the intended application and data volume. Performance analysis can be broadly categorized into time complexity and space complexity analysis.\n\nTime complexity refers to the amount of time an algorithm takes to execute as a function of the input size. It is usually expressed using Big O notation, which describes the upper bound of the growth rate of the algorithm's execution time. For example, an algorithm with a time complexity of O(n) means that the execution time grows linearly with the input size 'n'.\n\nSpace complexity, on the other hand, refers to the amount of memory an algorithm requires to execute as a function of the input size. This includes the memory occupied by the input data, as well as any auxiliary space used by the algorithm during its execution. Similar to time complexity, space complexity is also often expressed using Big O notation.\n\nConsider the example of searching for an element in an unsorted array. A linear search algorithm, which iterates through each element of the array until the target element is found, has a time complexity of O(n) in the worst case (when the target element is the last element or not present in the array) and a space complexity of O(1) as it uses a constant amount of extra memory.\n\nNow consider a sorting algorithm such as merge sort. Merge sort has a time complexity of O(n log n), making it more efficient than linear search for larger datasets. However, merge sort typically requires O(n) auxiliary space due to the need to create temporary arrays during the merging process.\n\nAs another example, consider accessing an element in an array using its index. This operation has a time complexity of O(1), as it takes a constant amount of time regardless of the array's size. The space complexity is also O(1), as it only involves accessing a specific memory location.\n\nIn conclusion, performance analysis is an essential aspect of algorithm design and selection. By analyzing the time and space complexity of different algorithms, developers can make informed decisions about which algorithm is best suited for a given task and dataset, leading to more efficient and scalable software solutions."
+    }
+  ]
+}

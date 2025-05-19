@@ -1,0 +1,25 @@
+{
+  "total_students": 2,
+  "total_questions": 4,
+  "average_similarity_per_question": {
+    "0": 0.862299770116806,
+    "1": 0.81422159075737,
+    "2": 0.920761913061142,
+    "3": 0.365612655878067
+  },
+  "average_coverage_per_question": {
+    "0": 0.16666666666666669,
+    "1": 0.0625,
+    "2": 0.25,
+    "3": 0.0
+  },
+  "plagiarism_flags_per_question": {
+    "0": 2,
+    "1": 2,
+    "2": 2,
+    "3": 2
+  },
+  "overall_average_similarity": 0.7407239824533463,
+  "overall_average_coverage": 0.11979166666666667,
+  "overall_plagiarism_flags": 8
+}

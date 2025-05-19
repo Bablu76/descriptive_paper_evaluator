@@ -1,0 +1,31 @@
+{
+  "student_id": "student_answer",
+  "questions": [
+    {
+      "question_id": 0,
+      "similarity": 0.909273624420166,
+      "coverage": 0.2,
+      "plagiarism_flag": true
+    },
+    {
+      "question_id": 1,
+      "similarity": 0.8719179630279541,
+      "coverage": 0.0,
+      "plagiarism_flag": true
+    },
+    {
+      "question_id": 2,
+      "similarity": 0.9242625832557678,
+      "coverage": 0.25,
+      "plagiarism_flag": true
+    },
+    {
+      "question_id": 3,
+      "similarity": 0.3426752984523773,
+      "coverage": 0.0,
+      "plagiarism_flag": true
+    }
+  ],
+  "average_similarity": 0.7620323672890663,
+  "average_coverage": 0.1125
+}

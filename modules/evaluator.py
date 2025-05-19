@@ -153,11 +153,7 @@ class Evaluator:
                     length_factor = min(1.0, max(0.7, 0.9 - 0.2 * (len(ans1) + len(ans2)) / 2000))
                     threshold = 0.8 * length_factor
                     
-                    sim = self.compute_similarity(ans1, ans2)
-                    
-                    # Flag if similarity exceeds threshold
-                    if sim > threshold:
-                        logger.info(f"Potential plagiarism detected between students {sid1} and {sid2} for question {q_idx}")
+                    if ans1.strip() == ans2.strip():
                         flagged[(sid1, q_idx)] = True
                         flagged[(sid2, q_idx)] = True
 
